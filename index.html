@@ -2124,45 +2124,78 @@ function renderPagination(id, current, total, onPage) {
 // ═══════════════════════════════════════════════
 function generateLessonHTML(name) {
   const db = getDB();
+  const safeName = name.replace(/['"\\`]/g, '');
+  const storageKey = 'lesson_' + safeName.replace(/\s+/g,'_');
 
-  // Build lesson data from audioData
-  const lessonData = audioData.map((ad, ai) => ({
-    id: ai + 1,
-    file: `${name}-A${ai+1}.mp3`,
-    sentences: (ad.sentences || []).map((s) => ({
-      text: s.text,
-      jpMeaning: s.jpMeaning || '',
-      phrases: (s.phrases || []).map((ph, pi) => ({
-        term: ph,
-        meaning: s.phrases_meanings?.[pi] || db.phrases[ph] || '',
-        units: (s.phraseUnits?.[ph] || []).map(u => ({
-          term: u,
-          meaning: s.allWordMeanings?.[u] || db.words[u] || ''
-        }))
-      })),
-      words: (() => {
-        // All registered words for this sentence
-        const all = {};
-        (s.words || []).forEach((w, wi) => {
-          all[w] = s.words_meanings?.[wi] || db.words[w] || '';
-        });
-        Object.entries(s.allWordMeanings || {}).forEach(([w, m]) => { if (!all[w]) all[w] = m; });
-        return Object.entries(all).map(([term, meaning]) => ({ term, meaning }));
-      })()
-    }))
-  }));
+  // Build per-audio HTML sections
+  let page2Audios = '';
+  let page3Audios = '';
+  let page4Audios = '';
+  let page5Audios = '';
 
-  const lessonDataJSON = JSON.stringify(lessonData, null, 2);
-  const safeName = name.replace(/['"\\]/g, '');
+  audioData.forEach((ad, ai) => {
+    const sentences = ad.sentences || [];
+    const audioFile = safeName + '-A' + (ai+1) + '.mp3';
 
-  return `<!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${name}</title>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Playfair+Display:wght@600&family=Space+Mono&display=swap');
+    // ── PAGE 2: Dictation ──
+    const revealText = sentences.map(s => s.text).join(' / ');
+    page2Audios += '<div class="dictation-block">'
+      + '<div class="audio-row">'
+      + '<button class="mini-play-btn" onclick="playAudio(\'' + audioFile + '\',this)">▶</button>'
+      + '<span class="audio-id">Audio ' + (ai+1) + '</span>'
+      + '</div>'
+      + '<textarea class="dictation-input" placeholder="聞こえた言葉を書いてみましょう..." oninput="saveInput(\'d' + ai + '\',this.value)"></textarea>'
+      + '<button class="reveal-btn" onclick="toggleReveal(\'rev2-' + ai + '\',this)">＋ テキストを確認する</button>'
+      + '<div class="reveal-text" id="rev2-' + ai + '">' + revealText + '</div>'
+      + '</div>';
+
+    // ── PAGE 3: Meaning ──
+    page3Audios += '<div class="audio-card" style="margin-bottom:8px">'
+      + '<div class="audio-label">Audio ' + (ai+1) + '</div>'
+      + '<div class="speed-btns"><button class="speed-btn" onclick="playAudio(\'' + audioFile + '\',this)"><span>▶</span> 再生</button></div>'
+      + '</div>';
+
+    sentences.forEach((s, si) => {
+      const bid = 'sb' + ai + '_' + si;
+      page3Audios += '<div class="sentence-block" id="' + bid + '">'
+        + '<div class="sentence-num">センテンス ' + (si+1) + '</div>'
+        + '<div class="sentence-text">' + buildLessonSpans(s, bid) + '</div>'
+        + '<div class="tooltip-popup" id="tooltip-' + bid + '"></div>'
+        + '<div class="input-label" style="margin-top:10px">この文の意味を自分の言葉で書いてみましょう</div>'
+        + '<textarea class="meaning-input" placeholder="例：…" oninput="saveInput(\'m' + ai + '_' + si + '\',this.value)"></textarea>'
+        + '<button class="reveal-btn" onclick="toggleReveal(\'rev3-' + ai + '-' + si + '\',this)" style="margin-top:8px">＋ 意味を確認する</button>'
+        + '<div class="reveal-text" id="rev3-' + ai + '-' + si + '">' + (s.jpMeaning || '（意味未登録）') + '</div>'
+        + '</div>';
+    });
+
+    // ── PAGE 4: Back-translate ──
+    page4Audios += '<div class="audio-card" style="margin-bottom:8px"><div class="audio-label">Audio ' + (ai+1) + '</div></div>';
+    sentences.forEach((s, si) => {
+      page4Audios += '<div class="bt-block">'
+        + '<div class="sentence-num">センテンス ' + (si+1) + '</div>'
+        + '<div class="bt-jp">' + (s.jpMeaning || '（意味未登録）') + '</div>'
+        + '<textarea class="bt-input" placeholder="スペイン語で書いてみましょう..." oninput="saveInput(\'bt' + ai + '_' + si + '\',this.value)"></textarea>'
+        + '<div class="reveal-group">'
+        + '<button class="reveal-small-btn" onclick="playAudio(\'' + audioFile + '\',this)">▶ 音声を聴く</button>'
+        + '<button class="reveal-small-btn" onclick="toggleReveal(\'bt-text-' + ai + '-' + si + '\',this)">📄 テキストを見る</button>'
+        + '</div>'
+        + '<div class="reveal-text" id="bt-text-' + ai + '-' + si + '">' + s.text + '</div>'
+        + '</div>';
+    });
+
+    // ── PAGE 5: Shadowing ──
+    const bid5 = 'shad' + ai;
+    page5Audios += '<div class="shadow-audio-block" id="' + bid5 + '">'
+      + '<div class="shadow-audio-block-label">Audio ' + (ai+1) + '</div>'
+      + '<div class="shadow-play-row"><button class="mini-play-btn" onclick="playAudio(\'' + audioFile + '\',this)">▶</button></div>';
+    sentences.forEach(s => {
+      page5Audios += '<div class="shadow-sentence"><span class="bullet-dot">・</span>' + buildLessonSpans(s, bid5) + '</div>';
+    });
+    page5Audios += '<div class="tooltip-popup" id="tooltip-' + bid5 + '"></div></div>';
+  });
+
+  // ── CSS (same as lesson-demo) ──
+  const css = `@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Playfair+Display:wght@600&family=Space+Mono&display=swap');
 :root{--bg:#0f0f13;--surface:#1a1a22;--surface2:#22222e;--border:#2e2e3e;--text:#e8e8f0;--muted:#7a7a92;--accent:#f4a843;--accent2:#6c9eff;--phrase:#f4a843;--word:#f4e843;--green:#4ecb71;}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:15px;line-height:1.7;}
@@ -2220,12 +2253,11 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 .reveal-small-btn:hover{border-color:var(--accent);color:var(--accent);}
 .shadow-whole{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:20px;}
 .shadow-whole-label{font-size:11px;color:var(--muted);margin-bottom:10px;font-family:'Space Mono',monospace;}
-.text-toggle-btn{display:flex;align-items:center;gap:8px;width:100%;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;color:var(--text);font-family:'Noto Sans JP',sans-serif;font-size:14px;cursor:pointer;transition:all .2s;margin-bottom:0;text-align:left;justify-content:space-between;}
+.text-toggle-btn{display:flex;align-items:center;gap:8px;width:100%;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;color:var(--text);font-family:'Noto Sans JP',sans-serif;font-size:14px;cursor:pointer;transition:all .2s;text-align:left;justify-content:space-between;}
 .text-toggle-btn:hover{border-color:var(--accent);color:var(--accent);}
 .text-toggle-btn .arrow{font-size:11px;transition:transform .25s;color:var(--muted);}
 .text-toggle-btn.open .arrow{transform:rotate(180deg);}
-.text-panel{display:none;background:var(--surface2);border:1px solid var(--border);border-top:none;border-radius:0 0 12px 12px;padding:4px 0 8px;margin-bottom:20px;overflow:hidden;animation:slideDown .25s ease;}
-@keyframes slideDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.text-panel{display:none;background:var(--surface2);border:1px solid var(--border);border-top:none;border-radius:0 0 12px 12px;padding:4px 0 8px;margin-bottom:20px;}
 .text-panel.show{display:block;}
 .shadow-audio-block{padding:16px 16px 12px;border-bottom:1px solid var(--border);position:relative;}
 .shadow-audio-block:last-child{border-bottom:none;}
@@ -2243,165 +2275,33 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 .complete-screen .icon{font-size:52px;margin-bottom:16px;}
 .complete-screen h2{font-family:'Playfair Display',serif;font-size:24px;color:var(--accent);margin-bottom:8px;}
 .complete-screen p{color:var(--muted);font-size:14px;}
-@media(max-width:480px){.sentence-text{font-size:15px;}}
-</style>
-</head>
-<body>
-<nav class="progress-nav">
-  <div class="progress-steps">
-    <button class="step-btn active" onclick="goTo(1)" id="step1-btn">① 音源</button>
-    <button class="step-btn" onclick="goTo(2)" id="step2-btn">② 書取</button>
-    <button class="step-btn" onclick="goTo(3)" id="step3-btn">③ 意味</button>
-    <button class="step-btn" onclick="goTo(4)" id="step4-btn">④ 訳す</button>
-    <button class="step-btn" onclick="goTo(5)" id="step5-btn">⑤ 追う</button>
-  </div>
-</nav>
-<div class="container">
-  <div class="lesson-title">${name}</div>
-  <div class="lesson-sub">スペイン語レッスン</div>
+@media(max-width:480px){.sentence-text{font-size:15px;}}`;
 
-  <!-- PAGE 1 -->
-  <div class="page active" id="page1">
-    <div class="section-badge"><span class="num">1</span> 音源を聴く</div>
-    <div class="purpose-box">何度も音声を聴いて耳を慣らしましょう。頭の中で自動再生できるくらい繰り返し聴くのが目的です。</div>
-    <div class="audio-card">
-      <div class="audio-label">▶ 全体音源</div>
-      <div class="speed-btns">
-        <button class="speed-btn" onclick="playAudio('${safeName} ×1.mp3',this)"><span>▶</span> 通常速度</button>
-        <button class="speed-btn" onclick="playAudio('${safeName} ×0.75.mp3',this)"><span>▶</span> 0.75倍速</button>
-        <button class="speed-btn" onclick="playAudio('${safeName} ×0.5.mp3',this)"><span>▶</span> 0.5倍速</button>
-      </div>
-    </div>
-    <div class="nav-row"><button class="next-btn" onclick="goTo(2)">次へ ›</button></div>
-  </div>
-
-  <!-- PAGE 2 -->
-  <div class="page" id="page2">
-    <div class="section-badge"><span class="num">2</span> ディクテーション</div>
-    <div class="purpose-box">聞こえた音を書き起こしましょう。どうしても聞き取れない時は「＋」を押して確認できます。</div>
-    ${lessonData.map((a,ai) => `
-    <div class="dictation-block">
-      <div class="audio-row">
-        <button class="mini-play-btn" onclick="playAudio('${safeName}-A${ai+1}.mp3',this)">▶</button>
-        <span class="audio-id">Audio ${ai+1}</span>
-      </div>
-      <textarea class="dictation-input" placeholder="聞こえた言葉を書いてみましょう..." oninput="saveInput('d${ai}',this.value)"></textarea>
-      <button class="reveal-btn" onclick="toggleReveal('rev2-${ai}',this)">＋ テキストを確認する</button>
-      <div class="reveal-text" id="rev2-${ai}">${a.sentences.map(s=>s.text).join(' / ')}</div>
-    </div>`).join('')}
-    <div class="nav-row"><button class="next-btn" onclick="goTo(3)">次へ ›</button></div>
-  </div>
-
-  <!-- PAGE 3 -->
-  <div class="page" id="page3">
-    <div class="section-badge"><span class="num">3</span> 意味を理解する</div>
-    <div class="purpose-box">スペイン語のテキストを見て意味を想像してみましょう。<br>わからない単語やフレーズはタップすると意味が表示されます。</div>
-    ${lessonData.map((a,ai) => `
-    <div class="audio-card" style="margin-bottom:8px">
-      <div class="audio-label">Audio ${ai+1}</div>
-      <div class="speed-btns"><button class="speed-btn" onclick="playAudio('${safeName}-A${ai+1}.mp3',this)"><span>▶</span> 再生</button></div>
-    </div>
-    ${a.sentences.map((s,si) => {
-      const bid = 'sb'+ai+'_'+si;
-      return `
-    <div class="sentence-block" id="${bid}">
-      <div class="sentence-num">センテンス ${si+1}</div>
-      <div class="sentence-text">${buildLessonSpans(s, bid)}</div>
-      <div class="tooltip-popup" id="tooltip-${bid}"></div>
-      <div class="input-label" style="margin-top:10px">この文の意味を自分の言葉で書いてみましょう</div>
-      <textarea class="meaning-input" placeholder="例：…" oninput="saveInput('m${ai}_${si}',this.value)"></textarea>
-      <button class="reveal-btn" onclick="toggleReveal('rev3-${ai}-${si}',this)" style="margin-top:8px">＋ 意味を確認する</button>
-      <div class="reveal-text" id="rev3-${ai}-${si}">${s.jpMeaning||'（意味未登録）'}</div>
-    </div>`;
-    }).join('')}`).join('')}
-    <div class="nav-row"><button class="next-btn" onclick="goTo(4)">次へ ›</button></div>
-  </div>
-
-  <!-- PAGE 4 -->
-  <div class="page" id="page4">
-    <div class="section-badge"><span class="num">4</span> 日本語 → スペイン語</div>
-    <div class="purpose-box">自分の言葉（日本語）をスペイン語で書いてみましょう。</div>
-    ${lessonData.map((a,ai) => `
-    <div class="audio-card" style="margin-bottom:8px"><div class="audio-label">Audio ${ai+1}</div></div>
-    ${a.sentences.map((s,si) => `
-    <div class="bt-block">
-      <div class="sentence-num">センテンス ${si+1}</div>
-      <div class="bt-jp" id="bt-jp-${ai}-${si}">${s.jpMeaning||'（意味未登録）'}</div>
-      <textarea class="bt-input" placeholder="スペイン語で書いてみましょう..." oninput="saveInput('bt${ai}_${si}',this.value)"></textarea>
-      <div class="reveal-group">
-        <button class="reveal-small-btn" onclick="playAudio('${safeName}-A${ai+1}.mp3',this)">▶ 音声を聴く</button>
-        <button class="reveal-small-btn" onclick="toggleReveal('bt-text-${ai}-${si}',this)">📄 テキストを見る</button>
-      </div>
-      <div class="reveal-text" id="bt-text-${ai}-${si}">${s.text}</div>
-    </div>`).join('')}`).join('')}
-    <div class="nav-row"><button class="next-btn" onclick="goTo(5)">次へ ›</button></div>
-  </div>
-
-  <!-- PAGE 5 -->
-  <div class="page" id="page5">
-    <div class="section-badge"><span class="num">5</span> シャドーイング</div>
-    <div class="purpose-box">音声を再生して、同じ速度で口に出して追いかけてみましょう。</div>
-    <div class="shadow-whole">
-      <div class="shadow-whole-label">▶ 全体音源</div>
-      <div class="speed-btns">
-        <button class="speed-btn" onclick="playAudio('${safeName} ×1.mp3',this)"><span>▶</span> 通常速度</button>
-        <button class="speed-btn" onclick="playAudio('${safeName} ×0.75.mp3',this)"><span>▶</span> ×0.75倍速</button>
-      </div>
-    </div>
-    <button class="text-toggle-btn" id="text-toggle-btn" onclick="toggleTextPanel()">
-      <span>テキストを見ながら練習する</span><span class="arrow">▼</span>
-    </button>
-    <div class="text-panel" id="text-panel">
-      ${lessonData.map((a,ai) => {
-        const bid5 = 'shad'+ai;
-        return `
-      <div class="shadow-audio-block" id="${bid5}">
-        <div class="shadow-audio-block-label">Audio ${ai+1}</div>
-        <div class="shadow-play-row"><button class="mini-play-btn" onclick="playAudio('${safeName}-A${ai+1}.mp3',this)">▶</button></div>
-        ${a.sentences.map(s => `<div class="shadow-sentence"><span class="bullet-dot">・</span>${buildLessonSpans(s, bid5)}</div>`).join('')}
-        <div class="tooltip-popup" id="tooltip-${bid5}"></div>
-      </div>`;
-      }).join('')}
-    </div>
-    <button class="complete-btn" onclick="completeLesson()">🎉 レッスン完了！</button>
-  </div>
-
-  <!-- COMPLETE -->
-  <div class="page" id="page-complete">
-    <div class="complete-screen">
-      <div class="icon">✨</div>
-      <h2>レッスン完了！</h2>
-      <p>${name} お疲れさまでした。<br>また明日も続けましょう！</p>
-      <button class="next-btn" style="margin:28px auto 0;display:inline-flex" onclick="goTo(1)">もう一度最初から</button>
-    </div>
-  </div>
-</div>
-
-<script>
-const STORAGE_KEY = 'lesson_${safeName.replace(/\s+/g,'_')}';
+  // ── JS (same as lesson-demo, no template literals) ──
+  const js = `
+const STORAGE_KEY = 'lesson_` + storageKey + `';
 let ldata = JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');
 function saveInput(k,v){ldata[k]=v;localStorage.setItem(STORAGE_KEY,JSON.stringify(ldata));}
-
-// restore inputs
-window.addEventListener('DOMContentLoaded',()=>{
-  document.querySelectorAll('textarea').forEach(t=>{
-    const k=t.getAttribute('oninput')?.match(/saveInput\('([^']+)'/)?.[1];
-    if(k&&ldata[k])t.value=ldata[k];
+window.addEventListener('DOMContentLoaded',function(){
+  document.querySelectorAll('textarea').forEach(function(t){
+    var m=t.getAttribute('oninput');
+    var k=m&&m.match(/saveInput\\('([^']+)'/);
+    if(k&&ldata[k[1]])t.value=ldata[k[1]];
   });
 });
-
-let currentPage=1;
-const totalPages=5;
+var currentPage=1;
+var totalPages=5;
 function goTo(n){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.getElementById('page'+n)?.classList.add('active');
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  var pg=document.getElementById('page'+n);
+  if(pg)pg.classList.add('active');
   currentPage=n;
   updateSteps(n);
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function updateSteps(n){
-  for(let i=1;i<=totalPages;i++){
-    const b=document.getElementById('step'+i+'-btn');
+  for(var i=1;i<=totalPages;i++){
+    var b=document.getElementById('step'+i+'-btn');
     if(!b)continue;
     b.classList.remove('active','done');
     if(i===n)b.classList.add('active');
@@ -2409,37 +2309,33 @@ function updateSteps(n){
   }
 }
 function toggleReveal(id,btn){
-  const el=document.getElementById(id);
+  var el=document.getElementById(id);
   if(!el)return;
-  const s=el.classList.toggle('show');
-  btn.textContent=s?btn.textContent.replace('＋','－'):btn.textContent.replace('－','＋');
+  var s=el.classList.toggle('show');
+  btn.textContent=s?btn.textContent.replace('\\uff0b','\\uff0d'):btn.textContent.replace('\\uff0d','\\uff0b');
 }
 function toggleTextPanel(){
-  const btn=document.getElementById('text-toggle-btn');
-  const panel=document.getElementById('text-panel');
-  const isOpen=panel.classList.toggle('show');
+  var btn=document.getElementById('text-toggle-btn');
+  var panel=document.getElementById('text-panel');
+  var isOpen=panel.classList.toggle('show');
   btn.classList.toggle('open',isOpen);
-  btn.querySelector('span:first-child').textContent=isOpen?'テキストをしまう':'テキストを見ながら練習する';
+  btn.querySelector('span').textContent=isOpen?'\\u30c6\\u30ad\\u30b9\\u30c8\\u3092\\u3057\\u307e\\u3046':'\\u30c6\\u30ad\\u30b9\\u30c8\\u3092\\u898b\\u306a\\u304c\\u3089\\u7df4\\u7fd2\\u3059\\u308b';
 }
-
-// Audio
-let currentAudio=null;
+var currentAudio=null;
 function playAudio(file,btn){
-  if(currentAudio){currentAudio.pause();currentAudio=null;document.querySelectorAll('.speed-btn.playing,.mini-play-btn.playing').forEach(b=>{b.classList.remove('playing');b.textContent=b.textContent==='■'?'▶':b.textContent;});}
-  const a=new Audio(file);
-  a.onended=()=>{btn.classList.remove('playing');};
-  a.play().then(()=>{btn.classList.add('playing');currentAudio=a;}).catch(()=>{btn.classList.remove('playing');});
+  if(currentAudio){currentAudio.pause();currentAudio=null;document.querySelectorAll('.playing').forEach(function(b){b.classList.remove('playing');});}
+  var a=new Audio(file);
+  a.onended=function(){btn.classList.remove('playing');};
+  a.play().then(function(){btn.classList.add('playing');currentAudio=a;}).catch(function(){btn.classList.remove('playing');});
 }
-
-// Tooltip system
-let activeSpan=null,activePhrase=null;
+var activeSpan=null,activePhrase=null;
 function handleSpanClick(event,span){
   event.stopPropagation();
-  const isInner=span.classList.contains('inner-unit');
-  const parentPhrase=span.closest('.w.phrase');
+  var isInner=span.classList.contains('inner-unit');
+  var parentPhrase=span.closest('.w.phrase');
   if(isInner&&(!parentPhrase||!parentPhrase.classList.contains('active')))return;
-  const block=span.closest('[id]');
-  const tooltip=block?document.getElementById('tooltip-'+block.id):null;
+  var block=span.closest('[id]');
+  var tooltip=block?document.getElementById('tooltip-'+block.id):null;
   if(span===activeSpan){clearAll();return;}
   if(isInner&&parentPhrase===activePhrase){
     if(activeSpan&&activeSpan!==activePhrase)activeSpan.classList.remove('active');
@@ -2454,32 +2350,111 @@ function handleSpanClick(event,span){
 function showTip(span,meaning,tooltip,block){
   if(!tooltip||!meaning)return;
   tooltip.textContent=meaning;tooltip.style.display='block';
-  requestAnimationFrame(()=>{
-    const sr=span.getBoundingClientRect(),br=block.getBoundingClientRect();
-    const tw=tooltip.offsetWidth||140,th=tooltip.offsetHeight||28;
-    let left=sr.left-br.left,top=sr.top-br.top-th-6;
+  requestAnimationFrame(function(){
+    var sr=span.getBoundingClientRect(),br=block.getBoundingClientRect();
+    var tw=tooltip.offsetWidth||140,th=tooltip.offsetHeight||28;
+    var left=sr.left-br.left,top=sr.top-br.top-th-6;
     if(left+tw>block.offsetWidth-4)left=block.offsetWidth-tw-4;
     if(left<4)left=4;if(top<0)top=sr.bottom-br.top+6;
     tooltip.style.left=left+'px';tooltip.style.top=top+'px';
   });
 }
 function clearAll(){
-  document.querySelectorAll('.w.active').forEach(e=>e.classList.remove('active'));
-  document.querySelectorAll('.tooltip-popup').forEach(t=>t.style.display='none');
+  document.querySelectorAll('.w.active').forEach(function(e){e.classList.remove('active');});
+  document.querySelectorAll('.tooltip-popup').forEach(function(t){t.style.display='none';});
   activeSpan=null;activePhrase=null;
 }
-document.addEventListener('click',e=>{if(!e.target.closest('.w'))clearAll();});
-
+document.addEventListener('click',function(e){if(!e.target.closest('.w'))clearAll();});
 function completeLesson(){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.getElementById('page-complete').classList.add('active');
-  document.querySelectorAll('.step-btn').forEach(b=>{b.classList.remove('active');b.classList.add('done');});
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  var cp=document.getElementById('page-complete');
+  if(cp)cp.classList.add('active');
+  document.querySelectorAll('.step-btn').forEach(function(b){b.classList.remove('active');b.classList.add('done');});
   window.scrollTo({top:0,behavior:'smooth'});
+}`;
+
+  // ── Assemble full HTML ──
+  return '<!DOCTYPE html>\n'
+    + '<html lang="ja">\n<head>\n'
+    + '<meta charset="UTF-8">\n'
+    + '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n'
+    + '<title>' + name + '</title>\n'
+    + '<style>\n' + css + '\n</style>\n'
+    + '</head>\n<body>\n'
+    + '<nav class="progress-nav"><div class="progress-steps">'
+    + '<button class="step-btn active" onclick="goTo(1)" id="step1-btn">① 音源</button>'
+    + '<button class="step-btn" onclick="goTo(2)" id="step2-btn">② 書取</button>'
+    + '<button class="step-btn" onclick="goTo(3)" id="step3-btn">③ 意味</button>'
+    + '<button class="step-btn" onclick="goTo(4)" id="step4-btn">④ 訳す</button>'
+    + '<button class="step-btn" onclick="goTo(5)" id="step5-btn">⑤ 追う</button>'
+    + '</div></nav>\n'
+    + '<div class="container">\n'
+    + '<div class="lesson-title">' + name + '</div>\n'
+    + '<div class="lesson-sub">スペイン語レッスン</div>\n'
+
+    // Page 1
+    + '<div class="page active" id="page1">'
+    + '<div class="section-badge"><span class="num">1</span> 音源を聴く</div>'
+    + '<div class="purpose-box">何度も音声を聴いて耳を慣らしましょう。頭の中で自動再生できるくらい繰り返し聴くのが目的です。</div>'
+    + '<div class="audio-card"><div class="audio-label">▶ 全体音源</div><div class="speed-btns">'
+    + '<button class="speed-btn" onclick="playAudio(\'' + safeName + ' ×1.mp3\',this)"><span>▶</span> 通常速度</button>'
+    + '<button class="speed-btn" onclick="playAudio(\'' + safeName + ' ×0.75.mp3\',this)"><span>▶</span> 0.75倍速</button>'
+    + '<button class="speed-btn" onclick="playAudio(\'' + safeName + ' ×0.5.mp3\',this)"><span>▶</span> 0.5倍速</button>'
+    + '</div></div>'
+    + '<div class="nav-row"><button class="next-btn" onclick="goTo(2)">次へ ›</button></div>'
+    + '</div>\n'
+
+    // Page 2
+    + '<div class="page" id="page2">'
+    + '<div class="section-badge"><span class="num">2</span> ディクテーション</div>'
+    + '<div class="purpose-box">聞こえた音を書き起こしましょう。どうしても聞き取れない時は「＋」を押して確認できます。</div>'
+    + page2Audios
+    + '<div class="nav-row"><button class="next-btn" onclick="goTo(3)">次へ ›</button></div>'
+    + '</div>\n'
+
+    // Page 3
+    + '<div class="page" id="page3">'
+    + '<div class="section-badge"><span class="num">3</span> 意味を理解する</div>'
+    + '<div class="purpose-box">スペイン語のテキストを見て意味を想像してみましょう。<br>わからない単語やフレーズはタップすると意味が表示されます。</div>'
+    + page3Audios
+    + '<div class="nav-row"><button class="next-btn" onclick="goTo(4)">次へ ›</button></div>'
+    + '</div>\n'
+
+    // Page 4
+    + '<div class="page" id="page4">'
+    + '<div class="section-badge"><span class="num">4</span> 日本語 → スペイン語</div>'
+    + '<div class="purpose-box">自分の言葉（日本語）をスペイン語で書いてみましょう。</div>'
+    + page4Audios
+    + '<div class="nav-row"><button class="next-btn" onclick="goTo(5)">次へ ›</button></div>'
+    + '</div>\n'
+
+    // Page 5
+    + '<div class="page" id="page5">'
+    + '<div class="section-badge"><span class="num">5</span> シャドーイング</div>'
+    + '<div class="purpose-box">音声を再生して、同じ速度で口に出して追いかけてみましょう。</div>'
+    + '<div class="shadow-whole"><div class="shadow-whole-label">▶ 全体音源</div><div class="speed-btns">'
+    + '<button class="speed-btn" onclick="playAudio(\'' + safeName + ' ×1.mp3\',this)"><span>▶</span> 通常速度</button>'
+    + '<button class="speed-btn" onclick="playAudio(\'' + safeName + ' ×0.75.mp3\',this)"><span>▶</span> ×0.75倍速</button>'
+    + '</div></div>'
+    + '<button class="text-toggle-btn" id="text-toggle-btn" onclick="toggleTextPanel()">'
+    + '<span>テキストを見ながら練習する</span><span class="arrow">▼</span></button>'
+    + '<div class="text-panel" id="text-panel">' + page5Audios + '</div>'
+    + '<button class="complete-btn" onclick="completeLesson()">🎉 レッスン完了！</button>'
+    + '</div>\n'
+
+    // Complete screen
+    + '<div class="page" id="page-complete">'
+    + '<div class="complete-screen"><div class="icon">✨</div>'
+    + '<h2>レッスン完了！</h2>'
+    + '<p>' + name + ' お疲れさまでした。<br>また明日も続けましょう！</p>'
+    + '<button class="next-btn" style="margin:28px auto 0;display:inline-flex" onclick="goTo(1)">もう一度最初から</button>'
+    + '</div></div>\n'
+
+    + '</div>\n'
+    + '<script>\n' + js + '\n' + '<' + '/script>\n'
+    + '</body>\n</html>';
 }
-<\/script>
-</body>
-</html>`;
-}
+
 
 function generateLessonJSON(name) {
   const data = {
