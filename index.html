@@ -2214,6 +2214,15 @@ function renderPagination(id, current, total, onPage) {
   `;
 }
 
+// Strip [] and () annotation markers, leaving only the plain text
+function cleanText(text) {
+  return (text || '')
+    .replace(/\[([^\]]*)\]/g, (_, inner) => inner.replace(/\([^)]+\)/g, m => m.replace(/[()]/g, '')))
+    .replace(/\(([^)]*)\)/g, '$1')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 // ═══════════════════════════════════════════════
 // CODE GENERATORS
 // ═══════════════════════════════════════════════
@@ -2233,7 +2242,7 @@ function generateLessonHTML(name) {
     const audioFile = safeName + '-A' + (ai+1) + '.mp3';
 
     // ── PAGE 2: Dictation ──
-    const revealText = sentences.map(s => s.text).join(' / ');
+    const revealText = sentences.map(s => cleanText(s.text)).join(' / ');
     page2Audios += '<div class="dictation-block">'
       + '<div class="audio-row">'
       + '<button class="mini-play-btn" onclick="playAudio(\'' + audioFile + '\',this)">▶</button>'
@@ -2274,7 +2283,7 @@ function generateLessonHTML(name) {
         + '<button class="reveal-small-btn" onclick="playAudio(\'' + audioFile + '\',this)">▶ 音声を聴く</button>'
         + '<button class="reveal-small-btn" onclick="toggleReveal(\'bt-text-' + ai + '-' + si + '\',this)">📄 テキストを見る</button>'
         + '</div>'
-        + '<div class="reveal-text" id="bt-text-' + ai + '-' + si + '">' + s.text + '</div>'
+        + '<div class="reveal-text" id="bt-text-' + ai + '-' + si + '">' + cleanText(s.text) + '</div>'
         + '</div>';
     });
 
