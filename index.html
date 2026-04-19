@@ -50,6 +50,20 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  /* sticky は .create-sticky でまとめて管理するため個別には設定しない */
+}
+/* レッスン作成ページ専用：ヘッダー＋ステップバーをまとめて固定 */
+.create-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--surface);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+/* その他ページのヘッダーは引き続き sticky */
+#screen-lessons .page-header,
+#screen-phrases .page-header,
+#screen-words .page-header {
   position: sticky;
   top: 0;
   z-index: 50;
@@ -262,7 +276,7 @@ textarea.input-field { resize: vertical; min-height: 70px; }
   display: flex; align-items: center;
   padding: 10px 16px; gap: 0;
   background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);
   overflow-x: auto;
 }
 .step-dot {
@@ -775,20 +789,22 @@ textarea.input-field { resize: vertical; min-height: 70px; }
      CREATE LESSON
 ═══════════════════════════════════════════════ -->
 <div class="screen" id="screen-create">
-  <div class="page-header">
-    <h1 id="create-title">新しいレッスン</h1>
-    <button class="back-btn" onclick="confirmBackToTop()">トップへ →</button>
-  </div>
+  <div class="create-sticky">
+    <div class="page-header">
+      <h1 id="create-title">新しいレッスン</h1>
+      <button class="back-btn" onclick="confirmBackToTop()">トップへ →</button>
+    </div>
 
-  <!-- step indicator -->
-  <div class="step-indicator">
-    <div class="step-dot active" id="sdot1" onclick="jumpToStep(1)"><div class="dot">1</div><span>基本設定</span></div>
-    <div class="step-line"></div>
-    <div class="step-dot" id="sdot2" onclick="jumpToStep(2)"><div class="dot">2</div><span>テキスト</span></div>
-    <div class="step-line"></div>
-    <div class="step-dot" id="sdot3" onclick="jumpToStep(3)"><div class="dot">3</div><span>プレビュー</span></div>
-    <div class="step-line"></div>
-    <div class="step-dot" id="sdot4" onclick="jumpToStep(4)"><div class="dot">4</div><span>公開</span></div>
+    <!-- step indicator -->
+    <div class="step-indicator">
+      <div class="step-dot active" id="sdot1" onclick="jumpToStep(1)"><div class="dot">1</div><span>基本設定</span></div>
+      <div class="step-line"></div>
+      <div class="step-dot" id="sdot2" onclick="jumpToStep(2)"><div class="dot">2</div><span>テキスト</span></div>
+      <div class="step-line"></div>
+      <div class="step-dot" id="sdot3" onclick="jumpToStep(3)"><div class="dot">3</div><span>プレビュー</span></div>
+      <div class="step-line"></div>
+      <div class="step-dot" id="sdot4" onclick="jumpToStep(4)"><div class="dot">4</div><span>公開</span></div>
+    </div>
   </div>
 
   <!-- STEP 1 -->
