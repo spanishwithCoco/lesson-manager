@@ -19,6 +19,7 @@
   --accent-soft: rgba(200,98,42,0.1);
   --green: #3a7d55;
   --green-soft: rgba(58,125,85,0.1);
+  --red: #c0392b;
   --shadow: 0 2px 12px rgba(0,0,0,0.08);
   --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
 }
@@ -978,6 +979,15 @@ function initDB() {
   return { lessons: [], wip: [], phrases: {}, words: {} };
 }
 function saveDB(db) {
+  // WIPは常に保存前に重複除去（同IDは最新dateのみ残す）
+  if (db.wip) {
+    const wipMap = new Map();
+    db.wip.forEach(w => {
+      const ex = wipMap.get(w.id);
+      if (!ex || (w.date || '') >= (ex.date || '')) wipMap.set(w.id, w);
+    });
+    db.wip = [...wipMap.values()];
+  }
   localStorage.setItem(DB_KEY, JSON.stringify(db));
 }
 function getDB() { return loadDB(); }
@@ -1086,22 +1096,12 @@ async function renderTop(doSync) {
   document.getElementById('stat-words').textContent   = wordCount   + '件';
 
   const wipEl = document.getElementById('wip-list');
-  // 同じIDが重複している場合は最新のものだけ残す
-  const wipMap = new Map();
-  (db.wip || []).forEach(w => {
-    const existing = wipMap.get(w.id);
-    if (!existing || (w.date || '') > (existing.date || '')) {
-      wipMap.set(w.id, w);
-    }
-  });
-  const wip = [...wipMap.values()];
+  const wip = db.wip || []; // saveDB で重複除去済み
 
   if (wip.length === 0) {
     wipEl.innerHTML = '<div class="card wip-empty">作成中のレッスンはありません</div>';
   } else {
     wipEl.innerHTML = wip.map(w => {
-      // date が "2026.04.19 21:35" 形式なら日付と時刻に分けて表示
-      // 古い "2026.04.19" 形式はそのまま表示
       const dateParts = (w.date || '').split(' ');
       const dateStr = dateParts[0] || '';
       const timeStr = dateParts[1] || '';
@@ -1114,7 +1114,11 @@ async function renderTop(doSync) {
             <div class="wip-name">${escHtml(w.name || '無題')}</div>
             <div class="wip-date">${dateDisplay}</div>
           </div>
-          <button class="btn-small" onclick="editWip('${w.id}')">編集を続ける</button>
+          <div style="display:flex;gap:6px;flex-shrink:0">
+            <button class="btn-small" onclick="editWip('${w.id}')">編集を続ける</button>
+            <button class="btn-small" style="color:var(--red,#e05c5c);border-color:var(--red,#e05c5c)"
+              onclick="deleteWip('${w.id}')">削除</button>
+          </div>
         </div>`;
     }).join('');
   }
@@ -1157,6 +1161,15 @@ function editWip(id) {
   onAudioCountInput();
   showCreateStep(wip.step || 1);
   showScreen('screen-create');
+}
+
+function deleteWip(id) {
+  if (!confirm('このレッスンの作成を削除しますか？\n（入力したデータは消えます）')) return;
+  const db = getDB();
+  db.wip = db.wip.filter(w => w.id !== id);
+  saveDB(db);
+  renderTop(false);
+  toast('削除しました');
 }
 
 function saveWip(extra) {
