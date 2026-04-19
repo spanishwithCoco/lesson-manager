@@ -999,6 +999,13 @@ async function syncFromSupabase() {
       if (v.type === 'phrase') db.phrases[v.term] = v.meaning;
       else                     db.words[v.term]   = v.meaning;
     });
+    // WIPの重複を除去（同IDは最新のdateを持つものだけ残す）
+    const wipMap = new Map();
+    (db.wip || []).forEach(w => {
+      const existing = wipMap.get(w.id);
+      if (!existing || (w.date || '') >= (existing.date || '')) wipMap.set(w.id, w);
+    });
+    db.wip = [...wipMap.values()];
     saveDB(db);
     setSyncBadge(false, true);
     return db;
@@ -1079,19 +1086,37 @@ async function renderTop(doSync) {
   document.getElementById('stat-words').textContent   = wordCount   + '件';
 
   const wipEl = document.getElementById('wip-list');
-  const wip = db.wip || [];
+  // 同じIDが重複している場合は最新のものだけ残す
+  const wipMap = new Map();
+  (db.wip || []).forEach(w => {
+    const existing = wipMap.get(w.id);
+    if (!existing || (w.date || '') > (existing.date || '')) {
+      wipMap.set(w.id, w);
+    }
+  });
+  const wip = [...wipMap.values()];
+
   if (wip.length === 0) {
     wipEl.innerHTML = '<div class="card wip-empty">作成中のレッスンはありません</div>';
   } else {
-    wipEl.innerHTML = wip.map(w => `
-      <div class="wip-card">
-        <div class="wip-info">
-          <div class="wip-name">${escHtml(w.name || '無題')}</div>
-          <div class="wip-date">${w.date || ''}</div>
-        </div>
-        <button class="btn-small" onclick="editWip('${w.id}')">編集を続ける</button>
-      </div>
-    `).join('');
+    wipEl.innerHTML = wip.map(w => {
+      // date が "2026.04.19 21:35" 形式なら日付と時刻に分けて表示
+      // 古い "2026.04.19" 形式はそのまま表示
+      const dateParts = (w.date || '').split(' ');
+      const dateStr = dateParts[0] || '';
+      const timeStr = dateParts[1] || '';
+      const dateDisplay = timeStr
+        ? `${dateStr} <span style="color:var(--accent);font-weight:500">${timeStr}</span>`
+        : dateStr;
+      return `
+        <div class="wip-card">
+          <div class="wip-info">
+            <div class="wip-name">${escHtml(w.name || '無題')}</div>
+            <div class="wip-date">${dateDisplay}</div>
+          </div>
+          <button class="btn-small" onclick="editWip('${w.id}')">編集を続ける</button>
+        </div>`;
+    }).join('');
   }
 }
 
@@ -2011,14 +2036,15 @@ function editLesson(id) {
   document.getElementById('lesson-name').value = lesson.name || '';
   document.getElementById('audio-count').value = lesson.audioData?.length || 0;
   document.getElementById('create-title').textContent = lesson.name || '';
-  // URL欄は step4 で復元（lesson-url は step4 表示時に読み込む）
-  // wip に一時保存してステップ管理
+  // WIPに上書き（重複しないように findIndex で既存を更新）
   const wipIdx = db.wip.findIndex(w => w.id === id);
-  if (wipIdx < 0) {
-    db.wip.push({ id, name: lesson.name, audioCount: lesson.audioData?.length || 0,
-                  step: 1, date: lesson.date, audioData, url: lesson.url });
-    saveDB(db);
-  }
+  const wipEntry = { id, name: lesson.name, audioCount: lesson.audioData?.length || 0,
+                     step: 1, date: nowStr(), audioData: audioData, url: lesson.url };
+  if (wipIdx >= 0) db.wip[wipIdx] = wipEntry;
+  else db.wip.push(wipEntry);
+  // 同IDの重複を除去（念のため）
+  db.wip = db.wip.filter((w, i) => db.wip.findIndex(x => x.id === w.id) === i);
+  saveDB(db);
   onLessonNameInput();
   showCreateStep(1);
   showScreen('screen-create');
