@@ -855,21 +855,6 @@ textarea.input-field { resize: vertical; min-height: 70px; }
   <!-- STEP 4 -->
   <div class="container" id="create-step4" style="display:none">
     <div id="checklist-container"><!-- JS --></div>
-
-    <hr class="divider">
-    <div class="card">
-      <div class="card-label">レッスンページURL</div>
-      <div class="input-group">
-        <label class="input-label">公開したURLを入力してください</label>
-        <input type="url" class="input-field" id="lesson-url" placeholder="https://yourname.github.io/lesson-name/">
-      </div>
-      <button class="btn-small accent" onclick="saveUrl()">保存</button>
-    </div>
-
-    <hr class="divider">
-    <button class="btn-primary" style="background:var(--green)" onclick="finishLesson()">
-      レッスン作成を終了する
-    </button>
   </div>
 </div>
 
@@ -1846,100 +1831,155 @@ function goCreateStep4() {
 }
 
 function buildChecklist() {
-  const name = document.getElementById('lesson-name').value.trim() || 'lesson';
+  const name     = document.getElementById('lesson-name').value.trim() || 'lesson';
   const safeName = name.replace(/\s+/g, '-').toLowerCase();
-
-  // Generate the lesson page code (simplified self-contained HTML)
   const lessonHTML = generateLessonHTML(name);
-  const lessonCSS  = `/* style.css は index.html 内に統合されています */\n/* 別ファイルが必要な場合はここにスタイルを移動してください */`;
-  const lessonJS   = `/* script.js は index.html 内に統合されています */\n/* 別ファイルが必要な場合はここにJSを移動してください */`;
-  const lessonJSON = generateLessonJSON(name);
-
-  const steps = [
-    {
-      n: 1,
-      title: 'デスクトップに新規フォルダを作成',
-      desc: `以下の名前でフォルダを作成してください`,
-      extra: `<div class="file-item" style="margin-top:8px"><span class="file-name">${escHtml(name)}</span><button class="btn-small" onclick="copyText('${name.replace(/'/g,"\\'")}')">コピー</button></div>`
-    },
-    {
-      n: 2,
-      title: 'フォルダに音源ファイルを移動',
-      desc: '作成したフォルダに mp3 音源ファイルをすべて入れてください'
-    },
-    {
-      n: 3,
-      title: 'Visual Studio Code でフォルダを開く',
-      desc: 'VS Code を起動 → File → Open Folder でフォルダを選択'
-    },
-    {
-      n: 4,
-      title: 'index.html を作成してコードを貼り付ける',
-      desc: '新規ファイルを作成し、下のコードをコピーして貼り付けてください',
-      filename: 'index.html',
-      code: lessonHTML
-    },
-    {
-      n: 5,
-      title: 'Live Server で動作確認',
-      desc: 'index.html を右クリック → "Open with Live Server" でブラウザ確認'
-    },
-    {
-      n: 6,
-      title: 'GitHub に新しいリポジトリを作成',
-      desc: `GitHub.com にログイン → 右上の「＋」→「New repository」\n・Repository name: <code>${safeName}</code> をコピーして入力\n・「Public」を選択\n・「Create repository」をクリック`,
-    },
-    {
-      n: 7,
-      title: 'ファイルをアップロード',
-      desc: `作成したリポジトリのページで「uploading an existing file」をクリック\nフォルダ内の全ファイルをドラッグ＆ドロップ → 「Commit changes」`,
-    },
-    {
-      n: 8,
-      title: 'GitHub Pages を有効にする',
-      desc: 'Settings → Pages → Source: "Deploy from a branch" → branch: main → Save'
-    },
-    {
-      n: 9,
-      title: 'URLを取得する',
-      desc: `数分後、以下のURLでアクセスできるようになります\nhttps://【GitHubユーザー名】.github.io/${safeName}/`,
-    },
-  ];
+  window._lessonCode = lessonHTML; // for copyCode
 
   const db = getDB();
   const wip = db.wip.find(w => w.id === currentWipId);
   const existingLesson = db.lessons.find(l => l.id === currentWipId);
   const savedUrl = wip?.url || existingLesson?.url || '';
-  if (savedUrl) document.getElementById('lesson-url').value = savedUrl;
 
-  document.getElementById('checklist-container').innerHTML = steps.map(step => `
-    <div class="checklist-item" id="chk-${step.n}">
-      <input type="checkbox" onchange="toggleCheck(${step.n}, this)">
+  const codeKB = Math.round(lessonHTML.length / 1000);
+
+  document.getElementById('checklist-container').innerHTML = `
+
+    <!-- STEP 1 -->
+    <div class="checklist-item" id="chk-1">
+      <input type="checkbox" onchange="toggleCheck(1,this)">
       <div class="checklist-content">
-        <div class="checklist-title">${step.n}. ${escHtml(step.title)}</div>
-        <div class="checklist-desc">${step.desc ? step.desc.replace(/\n/g,'<br>').replace(/<code>/g,'<code style="font-family:DM Mono,monospace;background:#e0d8cc;padding:1px 4px;border-radius:3px">') : ''}</div>
-        ${step.filename ? `
-          <div style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap">
-            <span class="badge badge-muted" style="font-family:DM Mono,monospace">${escHtml(step.filename)}</span>
-            <button class="btn-small" onclick="copyText('${step.filename}')">ファイル名コピー</button>
-          </div>
-          <div class="code-block" style="font-size:10px;color:#888;padding:10px 14px">
-            （コードは下のボタンでコピーしてください　${Math.round((step.code||'').length/1000)}KB）
-          </div>
-          <button class="copy-code-btn" id="copybtn-${step.n}" onclick="copyCode(${step.n})">コードをコピー</button>
-        ` : ''}
-        ${step.extra || ''}
+        <div class="checklist-title">1. GitHub に新しいリポジトリを作成</div>
+        <div class="checklist-desc">
+          GitHub.com にログイン → 右上の「＋」→「New repository」<br><br>
+          <strong>・Repository name</strong>
+        </div>
+        <div class="file-item" style="margin-top:6px;margin-bottom:10px">
+          <span class="file-name">${escHtml(safeName)}</span>
+          <button class="btn-small" onclick="copyText('${safeName.replace(/'/g,"\\'")}')">コピー</button>
+        </div>
+        <div class="checklist-desc">
+          ・「<strong>Public</strong>」を選択<br>
+          ・「<strong>Create repository</strong>」をクリック<br>
+          ・作成したリポジトリのページで「<strong>creating a new file</strong>」をクリック
+        </div>
       </div>
     </div>
-  `).join('');
 
-  // store codes for copy by step number
-  window._stepCodes = window._stepCodes || {};
-  steps.forEach(s => { if (s.code) window._stepCodes[s.n] = s.code; });
+    <!-- STEP 2 -->
+    <div class="checklist-item" id="chk-2">
+      <input type="checkbox" onchange="toggleCheck(2,this)">
+      <div class="checklist-content">
+        <div class="checklist-title">2. index.html を作成してコードを貼り付ける</div>
+        <div class="checklist-desc">
+          <strong>${escHtml(safeName)} ／ index.html</strong> in main となるように以下をコピーして貼り付け
+        </div>
+        <div class="file-item" style="margin-top:8px;margin-bottom:10px">
+          <span class="file-name">index.html</span>
+          <button class="btn-small" onclick="copyText('index.html')">コピー</button>
+        </div>
+        <div class="checklist-desc" style="margin-bottom:8px">以下コードをコピーして貼り付ける（${codeKB}KB）</div>
+        <div class="code-block" style="font-size:10px;color:#888;padding:10px 14px">
+          コードは下のボタンでコピーしてください
+        </div>
+        <button class="copy-code-btn" id="copybtn-main" onclick="copyLessonCode()">コードをコピー</button>
+        <div class="checklist-desc" style="margin-top:10px">
+          コードを貼り付けたら「<strong>Commit changes</strong>」を押す
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 3 -->
+    <div class="checklist-item" id="chk-3">
+      <input type="checkbox" onchange="toggleCheck(3,this)">
+      <div class="checklist-content">
+        <div class="checklist-title">3. 音源ファイルを追加する</div>
+        <div class="checklist-desc">
+          <strong>&lt;&gt; Code</strong> の左隣にある「<strong>＋</strong>」ボタンを押し、<strong>Upload files</strong> を選択<br><br>
+          保存した音源ファイルをすべてドラッグ＆ドロップする<br><br>
+          ファイルの読み込みが完了したら「<strong>Commit changes</strong>」を押す
+        </div>
+        <div class="card-label" style="margin-top:10px">アップロードするファイル一覧</div>
+        <div id="audio-file-list-step4"><!-- JS --></div>
+      </div>
+    </div>
+
+    <!-- STEP 4 -->
+    <div class="checklist-item" id="chk-4">
+      <input type="checkbox" onchange="toggleCheck(4,this)">
+      <div class="checklist-content">
+        <div class="checklist-title">4. GitHub Pages を有効にする</div>
+        <div class="checklist-desc">
+          Settings → Pages → Source: "<strong>Deploy from a branch</strong>"<br>
+          → branch: <strong>main</strong> → <strong>Save</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 5 -->
+    <div class="checklist-item" id="chk-5">
+      <input type="checkbox" onchange="toggleCheck(5,this)">
+      <div class="checklist-content">
+        <div class="checklist-title">5. URLを取得する</div>
+        <div class="checklist-desc">
+          数分経ってから、Settings → Pages を選択<br>
+          以下のように表示される：<br>
+          <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent2)">
+            Your site is live at https://【ユーザー名】.github.io/${escHtml(safeName)}/
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 6: URL入力 -->
+    <div class="checklist-item" id="chk-6">
+      <input type="checkbox" onchange="toggleCheck(6,this)">
+      <div class="checklist-content">
+        <div class="checklist-title">6. 公開したURLを入力して保存</div>
+        <div class="input-group" style="margin-top:10px;margin-bottom:6px">
+          <label class="input-label">レッスンページURL</label>
+          <input type="url" class="input-field" id="lesson-url"
+            placeholder="https://yourname.github.io/${escHtml(safeName)}/"
+            value="${escHtml(savedUrl)}">
+        </div>
+        <button class="btn-small accent" onclick="saveUrl()">保存</button>
+      </div>
+    </div>
+
+    <div style="margin-top:24px">
+      <button class="btn-primary" style="background:var(--green)" onclick="finishLesson()">
+        レッスン作成を終了し、作成済みレッスンとして保存する
+      </button>
+    </div>
+  `;
+
+  // Audio file list for step 3
+  const audioCount = parseInt(document.getElementById('audio-count').value) || 0;
+  const fileListEl = document.getElementById('audio-file-list-step4');
+  if (fileListEl) {
+    const files = [
+      name + ' ×1.mp3',
+      name + ' ×0.75.mp3',
+      name + ' ×0.5.mp3',
+      ...Array.from({length: audioCount}, (_,i) => name + '-A' + (i+1) + '.mp3')
+    ];
+    fileListEl.innerHTML = files.map(f =>
+      `<div class="file-item"><span class="file-name">${escHtml(f)}</span></div>`
+    ).join('');
+  }
 }
 
 function toggleCheck(n, cb) {
   document.getElementById('chk-'+n).classList.toggle('checked', cb.checked);
+}
+
+function copyLessonCode() {
+  const code = window._lessonCode;
+  if (!code) return;
+  navigator.clipboard.writeText(code).then(() => {
+    const btn = document.getElementById('copybtn-main');
+    if (btn) { btn.textContent = '✓ コピーしました'; setTimeout(() => btn.textContent = 'コードをコピー', 2000); }
+  });
 }
 
 function copyCode(n) {
