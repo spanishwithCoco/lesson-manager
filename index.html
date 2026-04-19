@@ -1,0 +1,2203 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>レッスン管理</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Serif+Display&family=DM+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg: #f5f2ed;
+  --surface: #ffffff;
+  --surface2: #f0ece4;
+  --border: #e0d8cc;
+  --text: #1a1612;
+  --muted: #8a8070;
+  --accent: #c8622a;
+  --accent2: #3d6b8c;
+  --accent-soft: rgba(200,98,42,0.1);
+  --green: #3a7d55;
+  --green-soft: rgba(58,125,85,0.1);
+  --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Noto Sans JP', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+/* ── SCREENS ── */
+.screen { display: none; min-height: 100vh; }
+.screen.active { display: block; animation: fadeUp .3s ease; }
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── SHARED HEADER ── */
+.page-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.page-header h1 {
+  font-family: 'DM Serif Display', serif;
+  font-size: 17px;
+  color: var(--accent);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.back-btn {
+  display: flex; align-items: center; gap: 5px;
+  background: none; border: 1px solid var(--border);
+  padding: 6px 12px; border-radius: 8px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 12px; color: var(--muted);
+  cursor: pointer; transition: all .18s; white-space: nowrap;
+  flex-shrink: 0;
+}
+.back-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── CONTAINER ── */
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 16px 80px;
+}
+
+/* ── BUTTONS ── */
+.btn-primary {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 14px 20px;
+  background: var(--accent); color: #fff;
+  border: none; border-radius: 12px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-weight: 700; font-size: 15px;
+  cursor: pointer; transition: all .2s;
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(200,98,42,.3); }
+
+.btn-secondary {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 12px 20px;
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); border-radius: 12px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 14px; cursor: pointer; transition: all .18s;
+}
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+.btn-small {
+  padding: 5px 12px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--surface2);
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 11px; color: var(--muted);
+  cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.btn-small:hover { border-color: var(--accent); color: var(--accent); }
+.btn-small.accent { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn-small.green { background: var(--green); color: #fff; border-color: var(--green); }
+
+/* ── CARDS ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+}
+.card-label {
+  font-size: 11px; color: var(--muted);
+  font-family: 'DM Mono', monospace;
+  margin-bottom: 10px; text-transform: uppercase; letter-spacing: .05em;
+}
+
+/* ── INPUTS ── */
+.input-group { margin-bottom: 16px; }
+.input-label {
+  font-size: 12px; color: var(--muted);
+  margin-bottom: 5px; display: block;
+}
+.input-field {
+  width: 100%; padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 14px; color: var(--text);
+  transition: border-color .18s;
+}
+.input-field:focus { outline: none; border-color: var(--accent); }
+.input-field.mono { font-family: 'DM Mono', monospace; font-size: 13px; }
+textarea.input-field { resize: vertical; min-height: 70px; }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+  background: var(--text); color: #fff;
+  padding: 10px 20px; border-radius: 20px;
+  font-size: 13px; z-index: 9999;
+  transition: transform .25s ease;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+/* ── DIVIDER ── */
+.divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+/* ── BADGE ── */
+.badge {
+  display: inline-block;
+  padding: 2px 10px; border-radius: 20px;
+  font-size: 11px; font-family: 'DM Mono', monospace;
+}
+.badge-accent { background: var(--accent-soft); color: var(--accent); }
+.badge-green  { background: var(--green-soft);  color: var(--green); }
+.badge-muted  { background: var(--surface2); color: var(--muted); }
+
+/* ─────────────────────────────────────────────────
+   TOP PAGE
+───────────────────────────────────────────────── */
+#screen-top .hero {
+  padding: 32px 16px 0;
+  max-width: 720px;
+  margin: 0 auto;
+}
+.app-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 28px;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+.app-sub { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
+
+.top-actions { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+.top-action-btn {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  cursor: pointer; transition: all .2s;
+  text-align: left;
+  font-family: 'Noto Sans JP', sans-serif;
+  width: 100%;
+}
+.top-action-btn:hover { border-color: var(--accent); box-shadow: var(--shadow); transform: translateY(-1px); }
+.top-action-btn.primary-action { background: var(--accent); color: #fff; border-color: var(--accent); }
+.top-action-btn.primary-action:hover { box-shadow: 0 4px 16px rgba(200,98,42,.3); }
+.action-icon { font-size: 22px; width: 36px; text-align: center; flex-shrink: 0; }
+.action-text { flex: 1; }
+.action-title { font-weight: 700; font-size: 14px; }
+.action-count {
+  font-family: 'DM Serif Display', serif;
+  font-size: 20px;
+  color: var(--accent);
+  flex-shrink: 0;
+  min-width: 44px;
+  text-align: right;
+}
+
+/* WIP lessons */
+.wip-section { margin-bottom: 24px; }
+.wip-title {
+  font-size: 11px; color: var(--muted); text-transform: uppercase;
+  letter-spacing: .08em; font-family: 'DM Mono', monospace;
+  margin-bottom: 10px;
+}
+.wip-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 8px;
+  display: flex; align-items: center; gap: 12px;
+}
+.wip-info { flex: 1; min-width: 0; }
+.wip-name { font-weight: 500; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wip-date { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; }
+.wip-empty { color: var(--muted); font-size: 13px; text-align: center; padding: 16px; }
+
+/* stats row */
+.stats-row {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px; margin-bottom: 24px;
+}
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  text-align: center;
+}
+.stat-num {
+  font-family: 'DM Serif Display', serif;
+  font-size: 28px; color: var(--accent);
+}
+.stat-label { font-size: 11px; color: var(--muted); }
+
+/* ─────────────────────────────────────────────────
+   LESSON CREATE – STEP INDICATOR
+───────────────────────────────────────────────── */
+.step-indicator {
+  display: flex; align-items: center;
+  padding: 10px 16px; gap: 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+.step-dot {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; color: var(--muted);
+  white-space: nowrap; flex-shrink: 0;
+  cursor: pointer;
+  padding: 4px 6px; border-radius: 8px;
+  transition: background .15s;
+}
+.step-dot:hover { background: var(--surface2); }
+.step-dot .dot {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--surface2); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-family: 'DM Mono', monospace;
+  transition: all .2s;
+}
+.step-dot.active { color: var(--accent); }
+.step-dot.active .dot { background: var(--accent); color: #fff; border-color: var(--accent); }
+.step-dot.done .dot   { background: var(--green);  color: #fff; border-color: var(--green); }
+.step-line {
+  flex: 1; height: 1px; background: var(--border);
+  margin: 0 4px; min-width: 12px; flex-shrink: 0;
+}
+
+/* ─────────────────────────────────────────────────
+   CREATE PAGE 1
+───────────────────────────────────────────────── */
+.file-list { margin-top: 12px; }
+.file-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px;
+  background: var(--surface2);
+  border-radius: 8px; margin-bottom: 6px;
+}
+.file-name {
+  flex: 1; font-family: 'DM Mono', monospace;
+  font-size: 12px; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ─────────────────────────────────────────────────
+   CREATE PAGE 2 – AUDIO TEXT INPUT
+───────────────────────────────────────────────── */
+.audio-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+.audio-section-header {
+  padding: 12px 16px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  font-family: 'DM Mono', monospace;
+  font-size: 12px; color: var(--accent);
+  font-weight: 500;
+}
+.audio-section-body { padding: 16px; }
+
+.sentence-row {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.sentence-row-label {
+  font-size: 11px; color: var(--muted);
+  font-family: 'DM Mono', monospace; margin-bottom: 8px;
+}
+.sentence-display {
+  font-size: 14px; line-height: 1.9;
+  margin-bottom: 10px; color: var(--text);
+  word-break: break-word;
+}
+.meaning-section { margin-top: 10px; }
+.meaning-section-label {
+  font-size: 10px; color: var(--accent);
+  font-family: 'DM Mono', monospace;
+  text-transform: uppercase; letter-spacing: .05em;
+  margin-bottom: 6px; margin-top: 10px;
+}
+.word-meaning-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.word-tag {
+  font-family: 'DM Mono', monospace; font-size: 12px;
+  color: var(--accent2); background: rgba(61,107,140,0.08);
+  padding: 3px 8px; border-radius: 5px;
+  white-space: nowrap; flex-shrink: 0;
+  min-width: 60px; max-width: 140px;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.word-tag.phrase-tag { color: var(--accent); background: var(--accent-soft); }
+.meaning-mini-input {
+  flex: 1; min-width: 0; width: 0;
+  padding: 5px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 13px; color: var(--text);
+}
+.meaning-mini-input:focus { outline: none; border-color: var(--accent); }
+.autocomplete-hint {
+  font-size: 10px; color: var(--green);
+  margin-left: 4px; font-style: italic;
+}
+
+/* word section collapsible */
+.word-section-header {
+  cursor: pointer; user-select: none;
+  display: flex; align-items: center; gap: 6px;
+}
+.word-section-header:hover { color: var(--accent); }
+.word-toggle-btn {
+  margin-left: auto;
+  background: none; border: 1px solid var(--border);
+  border-radius: 6px; padding: 2px 8px;
+  font-size: 10px; color: var(--muted);
+  cursor: pointer; font-family: 'Noto Sans JP', sans-serif;
+  transition: all .15s;
+}
+.word-toggle-btn:hover { border-color: var(--accent); color: var(--accent); }
+.word-section-body { margin-top: 6px; }
+.word-section-body.collapsed { display: none; }
+/* explicitly registered words (via ()) get a small dot */
+.word-tag.explicit-word::after {
+  content: '◉';
+  font-size: 7px;
+  margin-left: 3px;
+  color: var(--accent2);
+  vertical-align: super;
+}
+
+/* hint syntax box */
+.syntax-hint {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  font-size: 12px; color: var(--muted);
+  line-height: 1.8;
+}
+.syntax-hint code {
+  font-family: 'DM Mono', monospace;
+  background: var(--border);
+  padding: 1px 5px; border-radius: 4px;
+  font-size: 11px; color: var(--accent2);
+}
+
+/* ─────────────────────────────────────────────────
+   CREATE PAGE 3 – PREVIEW (same as lesson page ③)
+───────────────────────────────────────────────── */
+.preview-frame {
+  background: #0f0f13;
+  border-radius: 14px;
+  padding: 20px 16px;
+  margin-bottom: 16px;
+  font-family: 'Noto Sans JP', sans-serif;
+}
+.prev-audio-block {
+  margin-bottom: 20px;
+}
+.prev-audio-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px; color: #7a7a92;
+  margin-bottom: 10px; margin-top: 4px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #2e2e3e;
+}
+.prev-sentence-block {
+  background: #1a1a22;
+  border: 1px solid #2e2e3e;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  position: relative;
+}
+.prev-num {
+  font-size: 10px; color: #7a7a92;
+  font-family: 'DM Mono', monospace; margin-bottom: 8px;
+}
+.prev-sentence-text {
+  font-size: 17px; line-height: 2.0;
+  color: #e8e8f0;
+}
+/* tooltip inside preview — fixed positioning for accuracy */
+.prev-tooltip {
+  display: none;
+  position: fixed;
+  background: #fff;
+  color: #111;
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  white-space: nowrap;
+  z-index: 200;
+  box-shadow: 0 4px 20px rgba(0,0,0,.5);
+  pointer-events: none;
+  font-family: 'Noto Sans JP', sans-serif;
+}
+/* reveal button inside preview */
+.prev-reveal-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: none;
+  border: 1px dashed #3a3a4e;
+  border-radius: 8px;
+  padding: 6px 12px;
+  color: #7a7a92;
+  font-size: 12px;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: all .2s;
+  font-family: 'Noto Sans JP', sans-serif;
+  width: 100%;
+  text-align: left;
+}
+.prev-reveal-btn:hover { border-color: #f4a843; color: #f4a843; }
+.prev-reveal-text {
+  display: none;
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: #22222e;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #e8e8f0;
+  border-left: 2px solid #f4a843;
+  font-style: italic;
+  line-height: 1.7;
+}
+/* clickable spans in preview */
+.pw {
+  cursor: pointer;
+  color: #e8e8f0;
+  border-radius: 3px;
+  padding: 1px 3px;
+  transition: background .15s, color .15s;
+}
+.pw.phrase {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: rgba(244,168,67,0.55);
+  text-underline-offset: 3px;
+}
+.pw.unit {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: rgba(244,232,67,0.55);
+  text-underline-offset: 3px;
+}
+.pw.inner-unit {
+  text-decoration: none;
+  pointer-events: none;
+  cursor: default;
+  padding: 1px 2px;
+}
+.pw.phrase.active {
+  background: #f4a843;
+  color: #000;
+  text-decoration: none;
+  border-radius: 4px;
+}
+.pw.unit:not(.inner-unit).active {
+  background: #f4e843;
+  color: #000;
+  text-decoration: none;
+  border-radius: 4px;
+}
+.pw.phrase.active .pw.inner-unit {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: rgba(80,55,0,0.55);
+  text-underline-offset: 3px;
+  pointer-events: auto;
+  cursor: pointer;
+  color: #000;
+}
+.pw.phrase.active .pw.inner-unit.active {
+  background: #f4e843;
+  color: #000;
+  text-decoration: none;
+}
+.pw.phrase:not(.active):hover { background: rgba(244,168,67,0.15); }
+.pw.unit:not(.inner-unit):not(.active):hover { background: rgba(244,232,67,0.15); }
+
+/* ─────────────────────────────────────────────────
+   CREATE PAGE 4 – PUBLISH
+───────────────────────────────────────────────── */
+.checklist-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  display: flex; gap: 12px; align-items: flex-start;
+  overflow: hidden;
+}
+.checklist-item input[type=checkbox] {
+  margin-top: 2px; flex-shrink: 0;
+  width: 16px; height: 16px; cursor: pointer;
+  accent-color: var(--accent);
+}
+.checklist-item.checked { opacity: .6; }
+.checklist-content { flex: 1; min-width: 0; overflow: hidden; word-break: break-word; }
+.checklist-title { font-weight: 500; font-size: 14px; margin-bottom: 4px; }
+.checklist-desc { font-size: 12px; color: var(--muted); line-height: 1.6; }
+.code-block {
+  background: #1a1a22; color: #e8e8f0;
+  border-radius: 8px; padding: 12px 14px;
+  font-family: 'DM Mono', monospace; font-size: 11px;
+  margin-top: 8px;
+  overflow-x: auto; overflow-y: auto;
+  white-space: pre-wrap;       /* wrap long lines */
+  word-break: break-all;       /* break anywhere to prevent overflow */
+  line-height: 1.6;
+  max-height: 160px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.copy-code-btn {
+  margin-top: 6px;
+  padding: 6px 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px; color: var(--muted);
+  cursor: pointer; transition: all .15s;
+}
+.copy-code-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ─────────────────────────────────────────────────
+   LESSON LIST
+───────────────────────────────────────────────── */
+.lesson-list-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  display: flex; align-items: center; gap: 12px;
+}
+.lesson-list-info { flex: 1; min-width: 0; }
+.lesson-list-name {
+  font-weight: 500; font-size: 14px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lesson-list-date { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; }
+.lesson-list-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+/* ─────────────────────────────────────────────────
+   PHRASE / WORD LIST
+───────────────────────────────────────────────── */
+.vocab-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+}
+.vocab-top {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.vocab-term {
+  font-family: 'DM Mono', monospace; font-size: 13px;
+  color: var(--accent); flex-shrink: 0; min-width: 100px;
+}
+.vocab-meaning-input {
+  flex: 1; min-width: 120px;
+  padding: 5px 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 13px; color: var(--text);
+}
+.vocab-meaning-input:focus { outline: none; border-color: var(--accent); }
+.vocab-lessons {
+  display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;
+}
+
+/* pagination */
+.pagination {
+  display: flex; align-items: center; justify-content: center;
+  gap: 12px; margin-top: 20px;
+}
+.page-num { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); }
+
+/* sync status */
+.sync-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; color: var(--muted);
+  font-family: 'DM Mono', monospace;
+  margin-bottom: 16px;
+}
+.sync-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green);
+}
+.sync-dot.syncing {
+  background: var(--accent);
+  animation: pulse .8s ease infinite alternate;
+}
+@keyframes pulse { from { opacity:.3; } to { opacity:1; } }
+
+/* search box */
+.search-box {
+  position: relative; margin-bottom: 16px;
+}
+.search-box input {
+  width: 100%; padding: 10px 14px 10px 38px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 14px; color: var(--text);
+}
+.search-box input:focus { outline: none; border-color: var(--accent); }
+.search-icon {
+  position: absolute; left: 12px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted); font-size: 14px; pointer-events: none;
+}
+
+/* month header */
+.month-header {
+  font-family: 'DM Mono', monospace; font-size: 11px;
+  color: var(--muted); text-transform: uppercase; letter-spacing: .08em;
+  padding: 8px 0 6px; margin-top: 16px;
+  border-bottom: 1px solid var(--border); margin-bottom: 10px;
+}
+
+/* responsive */
+@media (max-width: 480px) {
+  .lesson-list-item { flex-wrap: wrap; }
+  .lesson-list-actions { width: 100%; justify-content: flex-end; }
+  .stats-row { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ─────────── TOAST ─────────── -->
+<div class="toast" id="toast"></div>
+
+<!-- ═══════════════════════════════════════════════
+     TOP PAGE
+═══════════════════════════════════════════════ -->
+<div class="screen active" id="screen-top">
+  <div class="hero container" style="padding-top:32px">
+    <div class="app-title">レッスン管理</div>
+    <div class="app-sub">スペイン語レッスンを作成・管理する</div>
+    <div class="sync-badge" id="sync-badge">
+      <span class="sync-dot syncing" id="sync-dot"></span>
+      <span id="sync-label">同期中...</span>
+    </div>
+
+    <!-- New lesson -->
+    <div class="top-actions">
+      <button class="top-action-btn primary-action" onclick="startNewLesson()">
+        <span class="action-icon">＋</span>
+        <span class="action-text">
+          <div class="action-title">新しいレッスンを作成する</div>
+        </span>
+      </button>
+    </div>
+
+    <!-- WIP lessons -->
+    <div class="wip-section">
+      <div class="wip-title">作成中のレッスン</div>
+      <div id="wip-list"><!-- JS --></div>
+    </div>
+
+    <!-- Nav buttons with inline counts -->
+    <div class="wip-title" style="margin-bottom:10px">作成済みのレッスン・フレーズ・単語</div>
+    <div class="top-actions">
+      <button class="top-action-btn" onclick="showScreen('screen-lessons')">
+        <span class="action-icon">📋</span>
+        <span class="action-text">
+          <div class="action-title">作成済みのレッスンを確認する</div>
+        </span>
+        <span class="action-count" id="stat-lessons">0件</span>
+      </button>
+      <button class="top-action-btn" onclick="showScreen('screen-phrases')">
+        <span class="action-icon">💬</span>
+        <span class="action-text">
+          <div class="action-title">フレーズ一覧を確認する</div>
+        </span>
+        <span class="action-count" id="stat-phrases">0件</span>
+      </button>
+      <button class="top-action-btn" onclick="showScreen('screen-words')">
+        <span class="action-icon">🔤</span>
+        <span class="action-text">
+          <div class="action-title">単語一覧を確認する</div>
+        </span>
+        <span class="action-count" id="stat-words">0件</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     CREATE LESSON
+═══════════════════════════════════════════════ -->
+<div class="screen" id="screen-create">
+  <div class="page-header">
+    <h1 id="create-title">新しいレッスン</h1>
+    <button class="back-btn" onclick="confirmBackToTop()">トップへ →</button>
+  </div>
+
+  <!-- step indicator -->
+  <div class="step-indicator">
+    <div class="step-dot active" id="sdot1" onclick="jumpToStep(1)"><div class="dot">1</div><span>基本設定</span></div>
+    <div class="step-line"></div>
+    <div class="step-dot" id="sdot2" onclick="jumpToStep(2)"><div class="dot">2</div><span>テキスト</span></div>
+    <div class="step-line"></div>
+    <div class="step-dot" id="sdot3" onclick="jumpToStep(3)"><div class="dot">3</div><span>プレビュー</span></div>
+    <div class="step-line"></div>
+    <div class="step-dot" id="sdot4" onclick="jumpToStep(4)"><div class="dot">4</div><span>公開</span></div>
+  </div>
+
+  <!-- STEP 1 -->
+  <div class="container" id="create-step1">
+    <div class="card">
+      <div class="input-group">
+        <label class="input-label">レッスン名</label>
+        <input type="text" class="input-field" id="lesson-name" placeholder="例：Bluey Ep1-1" oninput="onLessonNameInput()">
+      </div>
+      <div class="input-group">
+        <label class="input-label">オーディオ数（最大30）</label>
+        <input type="number" class="input-field" id="audio-count" min="1" max="30" placeholder="例：3" oninput="onAudioCountInput()">
+      </div>
+    </div>
+
+    <div class="card" id="file-card" style="display:none">
+      <div class="card-label">用意するオーディオファイル</div>
+      <div class="file-list" id="file-list"><!-- JS --></div>
+    </div>
+
+    <button class="btn-primary" id="start-btn" onclick="goCreateStep2()" style="opacity:.5;pointer-events:none">
+      レッスン作成を始める →
+    </button>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="container" id="create-step2" style="display:none">
+    <div class="syntax-hint">
+      <strong>入力ルール</strong><br>
+      センテンスを分ける: <code>"センテンス1" "センテンス2"</code><br>
+      フレーズ登録 <code>[hacen que]</code>　単語登録 <code>(los juegos)</code><br>
+      フレーズ内に単語: <code>[por (un rato)]</code>
+    </div>
+    <div id="audio-inputs-container"><!-- JS --></div>
+    <button class="btn-primary" onclick="goCreateStep3()">プレビューを確認する →</button>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="container" id="create-step3" style="display:none">
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-label">レッスンページ プレビュー（ステップ③）</div>
+      <div class="preview-frame" id="preview-content"><!-- JS --></div>
+    </div>
+    <button class="btn-primary" onclick="goCreateStep4()">この内容でレッスンを作成する →</button>
+  </div>
+
+  <!-- STEP 4 -->
+  <div class="container" id="create-step4" style="display:none">
+    <div id="checklist-container"><!-- JS --></div>
+
+    <hr class="divider">
+    <div class="card">
+      <div class="card-label">レッスンページURL</div>
+      <div class="input-group">
+        <label class="input-label">公開したURLを入力してください</label>
+        <input type="url" class="input-field" id="lesson-url" placeholder="https://yourname.github.io/lesson-name/">
+      </div>
+      <button class="btn-small accent" onclick="saveUrl()">保存</button>
+    </div>
+
+    <hr class="divider">
+    <button class="btn-primary" style="background:var(--green)" onclick="finishLesson()">
+      レッスン作成を終了する
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     LESSON LIST
+═══════════════════════════════════════════════ -->
+<div class="screen" id="screen-lessons">
+  <div class="page-header">
+    <h1>作成済みレッスン</h1>
+    <span class="badge badge-accent" id="lessons-count-badge">0件</span>
+    <button class="back-btn" onclick="showScreen('screen-top')">トップへ →</button>
+  </div>
+  <div class="container">
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input type="text" placeholder="レッスン名で検索..." id="lesson-search" oninput="renderLessonList()">
+    </div>
+    <div id="lesson-list-container"><!-- JS --></div>
+    <div class="pagination" id="lesson-pagination"><!-- JS --></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     PHRASE LIST
+═══════════════════════════════════════════════ -->
+<div class="screen" id="screen-phrases">
+  <div class="page-header">
+    <h1>フレーズ一覧</h1>
+    <span class="badge badge-accent" id="phrases-count-badge">0件</span>
+    <button class="back-btn" onclick="showScreen('screen-top')">トップへ →</button>
+  </div>
+  <div class="container">
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input type="text" placeholder="フレーズ・意味で検索..." id="phrase-search" oninput="renderPhraseList()">
+    </div>
+    <div id="phrase-list-container"><!-- JS --></div>
+    <div class="pagination" id="phrase-pagination"><!-- JS --></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     WORD LIST
+═══════════════════════════════════════════════ -->
+<div class="screen" id="screen-words">
+  <div class="page-header">
+    <h1>単語一覧</h1>
+    <span class="badge badge-green" id="words-count-badge">0件</span>
+    <button class="back-btn" onclick="showScreen('screen-top')">トップへ →</button>
+  </div>
+  <div class="container">
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input type="text" placeholder="単語・意味で検索..." id="word-search" oninput="renderWordList()">
+    </div>
+    <div id="word-list-container"><!-- JS --></div>
+    <div class="pagination" id="word-pagination"><!-- JS --></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     JAVASCRIPT
+═══════════════════════════════════════════════ -->
+<script>
+// ── SUPABASE CONFIG ──────────────────────────────
+const SB_URL = 'https://vnzkjkyvagqnfrqsoijw.supabase.co';
+const SB_KEY = 'sb_publishable_pCakxmFfDkTMJFjkcOdobw_5Tnt5Vmg';
+
+const sbHeaders = {
+  'Content-Type': 'application/json',
+  'apikey': SB_KEY,
+  'Authorization': 'Bearer ' + SB_KEY,
+  'Prefer': 'return=minimal'
+};
+
+// Supabase REST helpers
+async function sbSelect(table, params = '') {
+  const r = await fetch(`${SB_URL}/rest/v1/${table}?${params}`, {
+    headers: { ...sbHeaders, 'Prefer': '' }
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+async function sbUpsert(table, data) {
+  const r = await fetch(`${SB_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: { ...sbHeaders, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify(data)
+  });
+  if (!r.ok) throw new Error(await r.text());
+}
+async function sbDelete(table, match) {
+  const params = Object.entries(match).map(([k,v])=>`${k}=eq.${encodeURIComponent(v)}`).join('&');
+  const r = await fetch(`${SB_URL}/rest/v1/${table}?${params}`, {
+    method: 'DELETE', headers: sbHeaders
+  });
+  if (!r.ok) throw new Error(await r.text());
+}
+
+// ── LOCAL CACHE (fallback / WIP storage) ─────────
+const DB_KEY = 'lessonManager_v1';
+function loadDB() {
+  try { return JSON.parse(localStorage.getItem(DB_KEY)) || initDB(); }
+  catch { return initDB(); }
+}
+function initDB() {
+  return { lessons: [], wip: [], phrases: {}, words: {} };
+}
+function saveDB(db) {
+  localStorage.setItem(DB_KEY, JSON.stringify(db));
+}
+function getDB() { return loadDB(); }
+
+// ── SYNC: pull Supabase → localDB ────────────────
+async function syncFromSupabase() {
+  setSyncBadge(true);
+  try {
+    const lessons = await sbSelect('lessons', 'order=date.desc');
+    const vocab   = await sbSelect('vocab');
+    const db = getDB();
+    db.lessons = lessons.map(l => ({
+      id: l.id, name: l.name, url: l.url, date: l.date,
+      audioData: l.audio_data || []
+    }));
+    db.phrases = {};
+    db.words   = {};
+    vocab.forEach(v => {
+      if (v.type === 'phrase') db.phrases[v.term] = v.meaning;
+      else                     db.words[v.term]   = v.meaning;
+    });
+    saveDB(db);
+    setSyncBadge(false, true);
+    return db;
+  } catch(e) {
+    console.warn('Supabase sync failed, using local cache:', e);
+    setSyncBadge(false, false);
+    return getDB();
+  }
+}
+
+function setSyncBadge(syncing, success) {
+  const dot   = document.getElementById('sync-dot');
+  const label = document.getElementById('sync-label');
+  if (!dot || !label) return;
+  if (syncing) {
+    dot.className = 'sync-dot syncing';
+    label.textContent = '同期中...';
+  } else if (success) {
+    dot.className = 'sync-dot';
+    dot.style.background = 'var(--green)';
+    label.textContent = '同期済み';
+  } else {
+    dot.className = 'sync-dot';
+    dot.style.background = 'var(--muted)';
+    label.textContent = 'オフライン';
+  }
+}
+
+// ── PUSH lesson to Supabase ──────────────────────
+async function pushLesson(lesson) {
+  await sbUpsert('lessons', {
+    id: lesson.id, name: lesson.name, url: lesson.url,
+    date: lesson.date, audio_data: lesson.audioData
+  });
+}
+
+// ── PUSH vocab term to Supabase ──────────────────
+async function pushVocab(type, term, meaning) {
+  await sbUpsert('vocab', { term, meaning, type });
+}
+
+// ── SCREEN NAVIGATION ───────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+  if (id === 'screen-top')     renderTop(true);
+  if (id === 'screen-lessons') renderLessonList(true);
+  if (id === 'screen-phrases') renderPhraseList(true);
+  if (id === 'screen-words')   renderWordList(true);
+}
+
+// ── TOAST ────────────────────────────────────────
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+// ── COPY ────────────────────────────────────────
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(() => toast('コピーしました'));
+}
+
+// ═══════════════════════════════════════════════
+// TOP PAGE
+// ═══════════════════════════════════════════════
+async function renderTop(doSync) {
+  if (doSync) await syncFromSupabase();
+  const db = getDB();
+
+  const lessonCount = (db.lessons || []).length;
+  const phraseCount = Object.keys(db.phrases || {}).length;
+  const wordCount   = Object.keys(db.words   || {}).length;
+  document.getElementById('stat-lessons').textContent = lessonCount + '件';
+  document.getElementById('stat-phrases').textContent = phraseCount + '件';
+  document.getElementById('stat-words').textContent   = wordCount   + '件';
+
+  const wipEl = document.getElementById('wip-list');
+  const wip = db.wip || [];
+  if (wip.length === 0) {
+    wipEl.innerHTML = '<div class="card wip-empty">作成中のレッスンはありません</div>';
+  } else {
+    wipEl.innerHTML = wip.map(w => `
+      <div class="wip-card">
+        <div class="wip-info">
+          <div class="wip-name">${escHtml(w.name || '無題')}</div>
+          <div class="wip-date">${w.date || ''}</div>
+        </div>
+        <button class="btn-small" onclick="editWip('${w.id}')">編集を続ける</button>
+      </div>
+    `).join('');
+  }
+}
+
+// ═══════════════════════════════════════════════
+// CREATE LESSON – STATE
+// ═══════════════════════════════════════════════
+let currentWipId = null;
+let createStep = 1;
+
+// parsed sentence data: array of { audioIdx, sentences: [{text, jpMeaning, phrases:[{term,meaning}], words:[{term,meaning}]}] }
+let audioData = []; // [{rawText, sentences:[{original, edited, jpMeaning, phrases, words}]}]
+
+function startNewLesson() {
+  currentWipId = 'wip_' + Date.now();
+  createStep = 1;
+  audioData = [];
+  document.getElementById('lesson-name').value = '';
+  document.getElementById('audio-count').value = '';
+  document.getElementById('file-card').style.display = 'none';
+  document.getElementById('start-btn').style.opacity = '.5';
+  document.getElementById('start-btn').style.pointerEvents = 'none';
+  document.getElementById('create-title').textContent = '新しいレッスン';
+  showCreateStep(1);
+  showScreen('screen-create');
+  // ※ WIPへの保存は「レッスン作成を始める」ボタンを押した時点（goCreateStep2）で行う
+}
+
+function editWip(id) {
+  const db = getDB();
+  const wip = db.wip.find(w => w.id === id);
+  if (!wip) return;
+  currentWipId = id;
+  audioData = wip.audioData || [];
+  document.getElementById('lesson-name').value = wip.name || '';
+  document.getElementById('audio-count').value = wip.audioCount || '';
+  document.getElementById('create-title').textContent = wip.name || '編集中';
+  onLessonNameInput();
+  onAudioCountInput();
+  showCreateStep(wip.step || 1);
+  showScreen('screen-create');
+}
+
+function saveWip(extra) {
+  const db = getDB();
+  const name = document.getElementById('lesson-name').value.trim();
+  const audioCount = parseInt(document.getElementById('audio-count').value) || 0;
+  let idx = db.wip.findIndex(w => w.id === currentWipId);
+  const entry = {
+    id: currentWipId,
+    name: name,
+    audioCount: audioCount,
+    step: createStep,
+    date: todayStr(),
+    audioData: audioData,
+    ...(extra || {})
+  };
+  if (idx >= 0) db.wip[idx] = { ...db.wip[idx], ...entry };
+  else db.wip.push(entry);
+  saveDB(db);
+}
+
+function showCreateStep(n) {
+  createStep = n;
+  [1,2,3,4].forEach(i => {
+    document.getElementById('create-step'+i).style.display = i===n ? 'block' : 'none';
+    const dot = document.getElementById('sdot'+i);
+    dot.classList.toggle('active', i===n);
+    dot.classList.toggle('done',   i<n);
+  });
+}
+
+function confirmBackToTop() {
+  // ステップ2以降なら保存してから戻る、ステップ1だけなら保存しない
+  if (createStep >= 2) saveWip();
+  showScreen('screen-top');
+}
+
+// ── STEP 1 ───────────────────────────────────────
+function onLessonNameInput() {
+  const name = document.getElementById('lesson-name').value.trim();
+  document.getElementById('create-title').textContent = name || '新しいレッスン';
+  rebuildFileList();
+  checkStep1Ready();
+  // saveWip はステップ2開始時のみ行う
+}
+function onAudioCountInput() {
+  rebuildFileList();
+  checkStep1Ready();
+  // saveWip はステップ2開始時のみ行う
+}
+
+function checkStep1Ready() {
+  const name = document.getElementById('lesson-name').value.trim();
+  const n = parseInt(document.getElementById('audio-count').value);
+  const ready = name.length > 0 && n >= 1 && n <= 30;
+  document.getElementById('start-btn').style.opacity = ready ? '1' : '.5';
+  document.getElementById('start-btn').style.pointerEvents = ready ? 'auto' : 'none';
+}
+
+function rebuildFileList() {
+  const name = document.getElementById('lesson-name').value.trim() || 'レッスン名';
+  const n = parseInt(document.getElementById('audio-count').value) || 0;
+  const fc = document.getElementById('file-card');
+  const fl = document.getElementById('file-list');
+  if (!name || n < 1) { fc.style.display = 'none'; return; }
+  fc.style.display = 'block';
+  const files = [
+    `${name} ×1.mp3`,
+    `${name} ×0.75.mp3`,
+    `${name} ×0.5.mp3`,
+    ...Array.from({length: n}, (_,i) => `${name}-A${i+1}.mp3`)
+  ];
+  fl.innerHTML = files.map(f => `
+    <div class="file-item">
+      <span class="file-name">${escHtml(f)}</span>
+      <button class="btn-small" onclick="copyText('${f.replace(/'/g,"\\'")}')">コピー</button>
+    </div>
+  `).join('');
+}
+
+function goCreateStep2() {
+  const name = document.getElementById('lesson-name').value.trim();
+  const n = parseInt(document.getElementById('audio-count').value);
+  if (!name || !n) return;
+
+  // initialise audioData if needed
+  while (audioData.length < n) audioData.push({ rawText: '', sentences: [] });
+  while (audioData.length > n) audioData.pop();
+
+  saveWip({ step: 2 });
+  buildAudioInputs(name, n);
+  showCreateStep(2);
+}
+
+// ── STEP 2 ───────────────────────────────────────
+function buildAudioInputs(name, n) {
+  const db = getDB();
+  const container = document.getElementById('audio-inputs-container');
+  container.innerHTML = '';
+  for (let i = 0; i < n; i++) {
+    const ad = audioData[i] || { rawText: '', sentences: [] };
+    const sec = document.createElement('div');
+    sec.className = 'audio-section';
+    sec.innerHTML = `
+      <div class="audio-section-header">Audio ${i+1}</div>
+      <div class="audio-section-body">
+        <div class="input-group">
+          <label class="input-label">オーディオテキスト（センテンスを分けるには"〜"で囲む）</label>
+          <textarea class="input-field mono" id="raw-${i}" rows="3"
+            placeholder='"Sí, (los juegos) solo [hacen que] [se me pase] [por (un rato)]." "¿Podrías decirle que regresé?"'
+            oninput="onRawInput(${i})">${escHtml(ad.rawText||'')}</textarea>
+        </div>
+        <div id="sentences-container-${i}"><!-- JS --></div>
+      </div>
+    `;
+    container.appendChild(sec);
+    if (ad.rawText) buildSentencesFor(i, ad.rawText, db);
+  }
+}
+
+function onRawInput(audioIdx) {
+  const raw = document.getElementById('raw-' + audioIdx).value;
+  audioData[audioIdx] = audioData[audioIdx] || {};
+  audioData[audioIdx].rawText = raw;
+  const db = getDB();
+  buildSentencesFor(audioIdx, raw, db);
+  saveWip();
+}
+
+function buildSentencesFor(audioIdx, raw, db) {
+  const sentences = parseRawText(raw);
+  // Preserve existing meaning data
+  const prevSentences = audioData[audioIdx].sentences || [];
+  sentences.forEach((s, si) => {
+    const prev = prevSentences[si] || {};
+    s.jpMeaning        = prev.jpMeaning || '';
+    s.phrases_meanings = prev.phrases_meanings || [];
+    s.words_meanings   = prev.words_meanings || [];
+    s.allWordMeanings  = prev.allWordMeanings || {};  // ← 追加
+  });
+  audioData[audioIdx].sentences = sentences;
+
+  const container = document.getElementById('sentences-container-' + audioIdx);
+  if (!sentences.length) { container.innerHTML = ''; return; }
+
+  container.innerHTML = sentences.map((s, si) => {
+    // ── Phrase rows ──
+    const phraseRows = s.phrases.map((ph, pi) => {
+      const saved = s.phrases_meanings[pi] || db.phrases[ph] || '';
+      return `
+        <div class="word-meaning-row">
+          <span class="word-tag phrase-tag">${escHtml(ph)}</span>
+          <input class="meaning-mini-input" type="text"
+            placeholder="フレーズの意味"
+            value="${escHtml(saved)}"
+            oninput="saveMeaning(${audioIdx},${si},'phrase',${pi},this.value)">
+        </div>`;
+    }).join('');
+
+    // ── Word rows: ALL words from the sentence (split on spaces/punctuation) ──
+    const allWords = extractAllWords(s.text, s.words);
+    // Merge with existing words_meanings by index
+    const wordRows = allWords.map((w, wi) => {
+      // Check if word was explicitly registered via ()
+      const explicitIdx = s.words.indexOf(w);
+      const saved = (explicitIdx >= 0 ? s.words_meanings[explicitIdx] : null)
+                    || db.words[w] || '';
+      const isExplicit = explicitIdx >= 0;
+      return `
+        <div class="word-meaning-row" data-word-row="${audioIdx}-${si}-${wi}">
+          <span class="word-tag ${isExplicit ? 'explicit-word' : ''}" title="${isExplicit ? '()で登録済み' : ''}">${escHtml(w)}</span>
+          <input class="meaning-mini-input" type="text"
+            placeholder="単語の意味"
+            value="${escHtml(saved)}"
+            oninput="saveMeaningAllWord(${audioIdx},${si},'${w.replace(/'/g,"\\'")}',this.value)">
+        </div>`;
+    }).join('');
+
+    const wordCount = allWords.length;
+    const wordSectionId = `words-section-${audioIdx}-${si}`;
+    const wordToggleId  = `words-toggle-${audioIdx}-${si}`;
+
+    return `
+      <div class="sentence-row">
+        <div class="sentence-row-label">センテンス ${si+1}</div>
+        <div class="sentence-display">${buildCleanAnnotated(s.text)}</div>
+        <div class="input-group" style="margin-bottom:6px">
+          <label class="input-label">日本語の意味（自分の言葉で）</label>
+          <input class="input-field" type="text" placeholder="この文の意味を入力"
+            value="${escHtml(s.jpMeaning || '')}"
+            oninput="saveMeaning(${audioIdx},${si},'jp',0,this.value)">
+        </div>
+        ${phraseRows ? `<div class="meaning-section-label">FRASE（フレーズ）</div>${phraseRows}` : ''}
+        <div class="meaning-section-label word-section-header" onclick="toggleWordSection('${wordSectionId}','${wordToggleId}')">
+          WORD（単語）<span style="margin-left:4px;color:var(--muted);font-size:10px">${wordCount}語</span>
+          <button class="word-toggle-btn" id="${wordToggleId}">▲ しまう</button>
+        </div>
+        <div id="${wordSectionId}" class="word-section-body">${wordRows}</div>
+      </div>`;
+  }).join('');
+}
+
+function saveMeaning(audioIdx, sentIdx, type, termIdx, value) {
+  const s = audioData[audioIdx].sentences[sentIdx];
+  if (!s) return;
+  if (type === 'jp') {
+    s.jpMeaning = value;
+  } else if (type === 'phrase') {
+    s.phrases_meanings = s.phrases_meanings || [];
+    s.phrases_meanings[termIdx] = value;
+    const term = s.phrases[termIdx];
+    if (term) {
+      const db = getDB();
+      db.phrases[term] = value;
+      saveDB(db);
+      pushVocab('phrase', term, value).catch(()=>{});
+    }
+  } else if (type === 'word') {
+    s.words_meanings = s.words_meanings || [];
+    s.words_meanings[termIdx] = value;
+    const term = s.words[termIdx];
+    if (term) {
+      const db = getDB();
+      db.words[term] = value;
+      saveDB(db);
+      pushVocab('word', term, value).catch(()=>{});
+    }
+  }
+  saveWip();
+}
+
+// Save meaning for any word (by term string, not index)
+function saveMeaningAllWord(audioIdx, sentIdx, term, value) {
+  const s = audioData[audioIdx]?.sentences[sentIdx];
+  if (!s) return;
+  s.allWordMeanings = s.allWordMeanings || {};
+  s.allWordMeanings[term] = value;
+  const db = getDB();
+  db.words[term] = value;
+  saveDB(db);
+  pushVocab('word', term, value).catch(()=>{});
+  saveWip();
+}
+
+// Extract all meaningful words from a sentence text
+function extractAllWords(text, explicitWords) {
+  // explicitWords = words registered via () — treat each as ONE unit
+  // Step 1: build a set of all individual tokens that are PART of an explicit multi-word unit
+  //         so we can suppress them from the auto-split list
+  const suppressedTokens = new Set();
+  explicitWords.forEach(w => {
+    if (w.includes(' ')) {
+      // multi-word unit: suppress each constituent token
+      w.split(/\s+/).forEach(t => suppressedTokens.add(t));
+    } else {
+      // single-word explicit: suppress itself (will be added as explicit below)
+      suppressedTokens.add(w);
+    }
+  });
+
+  // Step 2: strip [] and () markers from text, then split into tokens
+  let clean = text
+    .replace(/\[([^\]]*)\]/g, (m, inner) => inner.replace(/\([^)]+\)/g, s => s.replace(/[()]/g,'')))
+    .replace(/[()[\]]/g, '');
+  const tokens = clean.split(/[\s,\.¿?!¡;:]+/).filter(t => t.length > 0);
+
+  const result = [];
+  const seen = new Set();
+
+  // First: add explicit () words as single units (in order of appearance in text)
+  // Sort them by their position in the original text
+  const sortedExplicit = [...explicitWords].sort((a, b) => {
+    const posA = text.indexOf('(' + a + ')');
+    const posB = text.indexOf('(' + b + ')');
+    return posA - posB;
+  });
+
+  // Build final list: walk tokens in order, inserting explicit units at the right position
+  // Use token positions to interleave correctly
+  let usedExplicit = new Set();
+  tokens.forEach(t => {
+    if (suppressedTokens.has(t)) {
+      // Find the explicit unit that contains this token and add it if not yet added
+      explicitWords.forEach(w => {
+        if (!usedExplicit.has(w) && w.split(/\s+/).includes(t)) {
+          if (!seen.has(w)) { result.push(w); seen.add(w); }
+          usedExplicit.add(w);
+        }
+      });
+      // If it's a single-word explicit, it was handled above
+      // If suppress but no explicit match → skip
+    } else {
+      if (!seen.has(t)) { result.push(t); seen.add(t); }
+    }
+  });
+
+  return result;
+}
+
+// Toggle word section collapse
+function toggleWordSection(sectionId, toggleId) {
+  const section = document.getElementById(sectionId);
+  const btn     = document.getElementById(toggleId);
+  if (!section || !btn) return;
+  const isCollapsed = section.classList.toggle('collapsed');
+  btn.textContent = isCollapsed ? '▼ 開く' : '▲ しまう';
+}
+
+// Jump to a step (only allow going to already-visited steps)
+function jumpToStep(n) {
+  if (n > createStep && n !== createStep) {
+    // Only navigate forward if we've been there
+    if (n === 2 && createStep >= 1) { goCreateStep2(); return; }
+    if (n === 3 && createStep >= 2) { goCreateStep3(); return; }
+    if (n === 4 && createStep >= 3) { goCreateStep4(); return; }
+    return;
+  }
+  showCreateStep(n);
+}
+
+// ── TEXT PARSER ──────────────────────────────────
+// Returns [{text, phrases:[], words:[], phraseUnits:{phrase:[units]}}]
+function parseRawText(raw) {
+  if (!raw.trim()) return [];
+  raw = raw.trim();
+
+  let sentences = [];
+  // Split by quoted sentences
+  const quoted = raw.match(/"[^"]+"/g);
+  if (quoted && quoted.length > 1) {
+    sentences = quoted.map(q => q.replace(/^"|"$/g,'').trim());
+  } else {
+    // remove stray quotes
+    sentences = [raw.replace(/"/g,'').trim()];
+  }
+
+  return sentences.map(text => {
+    const phrases = [];
+    const words = [];
+    const phraseUnits = {}; // phrase -> [units inside]
+
+    // Find [] items (phrases, may contain () units inside)
+    const phraseMatches = [...text.matchAll(/\[([^\]]+)\]/g)];
+    phraseMatches.forEach(m => {
+      const inner = m[1];
+      const units = [...inner.matchAll(/\(([^)]+)\)/g)].map(u => u[1].trim());
+      const phraseText = inner.replace(/\([^)]+\)/g, s => s.replace(/[()]/g,'')).trim();
+      phrases.push(phraseText);
+      if (units.length) phraseUnits[phraseText] = units;
+    });
+
+    // Find standalone () items not inside []
+    const textWithoutPhrases = text.replace(/\[[^\]]*\]/g, '');
+    const unitMatches = [...textWithoutPhrases.matchAll(/\(([^)]+)\)/g)];
+    unitMatches.forEach(m => words.push(m[1].trim()));
+
+    // Also collect all inner units from phrases
+    Object.values(phraseUnits).forEach(us => us.forEach(u => {
+      if (!words.includes(u)) words.push(u);
+    }));
+
+    return { text, phrases, words, phraseUnits };
+  });
+}
+
+function renderAnnotatedText(s) {
+  // Show clean text: remove [] and () markers, highlight phrases/words with color
+  let t = s.text;
+  // phrases [xxx] → colored span, no brackets
+  t = t.replace(/\[([^\]]+)\]/g, (match, inner) => {
+    // remove inner () markers too
+    const clean = inner.replace(/\([^)]+\)/g, m => m.replace(/[()]/g,''));
+    return `<span style="color:var(--accent);font-weight:500">${escHtml(clean)}</span>`;
+  });
+  // standalone () → colored, no parens
+  t = t.replace(/\(([^)]+)\)/g, (match, inner) =>
+    `<span style="color:var(--accent2)">${escHtml(inner)}</span>`
+  );
+  // escape any remaining plain text (already escaped above in spans, need to handle non-span parts)
+  // Re-do: safer approach - build piece by piece
+  return buildCleanAnnotated(s.text);
+}
+
+function buildCleanAnnotated(text) {
+  // Walk through text and build HTML safely
+  let result = '';
+  let i = 0;
+  while (i < text.length) {
+    if (text[i] === '[') {
+      const end = text.indexOf(']', i);
+      if (end === -1) { result += escHtml(text[i]); i++; continue; }
+      const inner = text.slice(i+1, end);
+      const clean = inner.replace(/\([^)]+\)/g, m => m.replace(/[()]/g,''));
+      result += `<span style="color:var(--accent);font-weight:500">${escHtml(clean)}</span>`;
+      i = end + 1;
+    } else if (text[i] === '(') {
+      const end = text.indexOf(')', i);
+      if (end === -1) { result += escHtml(text[i]); i++; continue; }
+      const inner = text.slice(i+1, end);
+      result += `<span style="color:var(--accent2)">${escHtml(inner)}</span>`;
+      i = end + 1;
+    } else {
+      result += escHtml(text[i]);
+      i++;
+    }
+  }
+  return result;
+}
+
+// ── STEP 3 ───────────────────────────────────────
+function goCreateStep3() {
+  saveWip({ step: 3 });
+  buildPreview();
+  showCreateStep(3);
+}
+
+function buildPreview() {
+  const el = document.getElementById('preview-content');
+  let html = '';
+
+  audioData.forEach((ad, ai) => {
+    if (!ad.sentences?.length) return;
+    html += `<div class="prev-audio-block">`;
+    html += `<div class="prev-audio-label">Audio ${ai+1}</div>`;
+    ad.sentences.forEach((s, si) => {
+      const bid = `prev-${ai}-${si}`;
+      const jpMeaning = s.jpMeaning || '';
+      const revealId  = `prev-reveal-${ai}-${si}`;
+      const revealBtnId = `prev-reveal-btn-${ai}-${si}`;
+      html += `
+        <div class="prev-sentence-block" id="${bid}">
+          <div class="prev-num">センテンス ${si+1}</div>
+          <div class="prev-sentence-text">${buildPreviewSpans(s, bid)}</div>
+          <div class="prev-tooltip" id="tooltip-${bid}"></div>
+          <button class="prev-reveal-btn" id="${revealBtnId}"
+            onclick="togglePrevReveal('${revealId}','${revealBtnId}')">
+            ＋ 意味を確認する
+          </button>
+          <div class="prev-reveal-text" id="${revealId}">${escHtml(jpMeaning || '（意味未登録）')}</div>
+        </div>`;
+    });
+    html += `</div>`;
+  });
+
+  el.innerHTML = html || '<div style="color:#7a7a92;font-size:13px;padding:10px">テキストが登録されていません</div>';
+}
+
+// Build interactive spans — handles [], (), and all allWordMeanings entries
+function buildPreviewSpans(s, blockId) {
+  const text = s.text;
+  const allMeanings = s.allWordMeanings || {};
+  const db = getDB();
+
+  // Helper: get meaning for a term (checks allWordMeanings, words_meanings, global db)
+  function getMeaning(term) {
+    if (allMeanings[term]) return allMeanings[term];
+    const wi = (s.words || []).indexOf(term);
+    if (wi >= 0 && s.words_meanings?.[wi]) return s.words_meanings[wi];
+    return db.words[term] || '';
+  }
+  function getPhraseMeaning(term) {
+    const pi = (s.phrases || []).indexOf(term);
+    if (pi >= 0 && s.phrases_meanings?.[pi]) return s.phrases_meanings[pi];
+    return db.phrases[term] || '';
+  }
+
+  // Walk through the raw text char by char
+  let result = '';
+  let i = 0;
+
+  while (i < text.length) {
+
+    // ── [ phrase ] ────────────────────────────────
+    if (text[i] === '[') {
+      const end = text.indexOf(']', i);
+      if (end === -1) { result += escHtml(text[i]); i++; continue; }
+
+      const inner      = text.slice(i+1, end);
+      const phraseTerm = inner.replace(/\([^)]+\)/g, m => m.replace(/[()]/g,'')).trim();
+      const meaning    = getPhraseMeaning(phraseTerm);
+      const innerUnits = (s.phraseUnits && s.phraseUnits[phraseTerm]) || [];
+      const hasUnits   = innerUnits.length > 0;
+
+      let innerHtml = '';
+      if (hasUnits) {
+        // Walk inner, wrap () as inner-unit spans, plain parts via highlightPlainSegment
+        let j = 0;
+        while (j < inner.length) {
+          if (inner[j] === '(') {
+            const uEnd = inner.indexOf(')', j);
+            if (uEnd === -1) { innerHtml += escHtml(inner[j]); j++; continue; }
+            const unitTerm    = inner.slice(j+1, uEnd).trim();
+            const unitMeaning = getMeaning(unitTerm);
+            innerHtml += `<span class="pw unit inner-unit" data-meaning="${escHtml(unitMeaning)}" data-block="${blockId}" onclick="prevSpanClick(event,this)">${escHtml(unitTerm)}</span>`;
+            j = uEnd + 1;
+          } else {
+            let plain = '';
+            while (j < inner.length && inner[j] !== '(') { plain += inner[j]; j++; }
+            // highlight registered words in this plain segment too
+            innerHtml += highlightPlainSegment(plain, allMeanings, db, blockId)
+                           .replace(/class="pw unit"/g, 'class="pw unit inner-unit"');
+          }
+        }
+      } else {
+        // No () units — still highlight individual words inside the phrase
+        innerHtml = highlightPlainSegment(phraseTerm, allMeanings, db, blockId)
+                      .replace(/class="pw unit"/g, 'class="pw unit inner-unit"');
+      }
+
+      result += `<span class="pw phrase" data-meaning="${escHtml(meaning)}" data-block="${blockId}" onclick="prevSpanClick(event,this)">${innerHtml}</span>`;
+      i = end + 1;
+
+    // ── ( unit ) ──────────────────────────────────
+    } else if (text[i] === '(') {
+      const end = text.indexOf(')', i);
+      if (end === -1) { result += escHtml(text[i]); i++; continue; }
+      const unitTerm    = text.slice(i+1, end).trim();
+      const unitMeaning = getMeaning(unitTerm);
+      result += `<span class="pw unit" data-meaning="${escHtml(unitMeaning)}" data-block="${blockId}" onclick="prevSpanClick(event,this)">${escHtml(unitTerm)}</span>`;
+      i = end + 1;
+
+    // ── plain text: try to match allWordMeanings tokens ──
+    } else {
+      // Collect consecutive plain characters
+      let plain = '';
+      while (i < text.length && text[i] !== '[' && text[i] !== '(') {
+        plain += text[i];
+        i++;
+      }
+
+      // Try to find registered words inside this plain segment
+      result += highlightPlainSegment(plain, allMeanings, db, blockId);
+    }
+  }
+  return result;
+}
+
+// Within a plain-text segment, wrap any registered word tokens as clickable spans
+function highlightPlainSegment(plain, allMeanings, db, blockId) {
+  if (!plain) return '';
+
+  // Collect all registered terms, longest first to avoid partial matches
+  const candidates = [
+    ...Object.keys(allMeanings),
+    ...Object.keys(db.words || {})
+  ].filter((t, idx, arr) => t.length > 0 && arr.indexOf(t) === idx)
+   .sort((a, b) => b.length - a.length);
+
+  if (!candidates.length) return escHtml(plain);
+
+  let result = '';
+  let j = 0;
+  while (j < plain.length) {
+    // Skip pure whitespace/punctuation chars immediately
+    if (/[\s,\.¿?!¡;:·]/.test(plain[j])) {
+      result += escHtml(plain[j]);
+      j++;
+      continue;
+    }
+
+    let matched = false;
+    for (const term of candidates) {
+      if (j + term.length > plain.length) continue;
+      const slice = plain.slice(j, j + term.length);
+      if (slice.toLowerCase() !== term.toLowerCase()) continue;
+
+      // Check character after match is not a word character (avoid partial matches)
+      const afterChar = plain[j + term.length] || '';
+      if (afterChar && /[a-zA-ZÀ-ÿ0-9]/.test(afterChar)) continue;
+
+      // Check character before match is not a word character
+      const beforeChar = j > 0 ? plain[j - 1] : '';
+      if (beforeChar && /[a-zA-ZÀ-ÿ0-9]/.test(beforeChar)) continue;
+
+      const meaning = allMeanings[term] || allMeanings[slice]
+                   || db.words[term]    || db.words[slice] || '';
+      result += `<span class="pw unit" data-meaning="${escHtml(meaning)}" data-block="${blockId}" onclick="prevSpanClick(event,this)">${escHtml(slice)}</span>`;
+      j += term.length;
+      matched = true;
+      break;
+    }
+    if (!matched) {
+      result += escHtml(plain[j]);
+      j++;
+    }
+  }
+  return result;
+}
+
+// ── PREVIEW TOOLTIP INTERACTION ──────────────────
+let prevActiveSpan   = null;
+let prevActivePhrase = null;
+
+function prevSpanClick(event, span) {
+  event.stopPropagation();
+
+  const isInnerUnit = span.classList.contains('inner-unit');
+  const parentPhrase = span.closest('.pw.phrase');
+
+  if (isInnerUnit && (!parentPhrase || !parentPhrase.classList.contains('active'))) return;
+
+  const blockId = span.dataset.block;
+  const tooltip = document.getElementById('tooltip-' + blockId);
+  const block   = document.getElementById(blockId);
+
+  if (span === prevActiveSpan) { prevClearAll(); return; }
+
+  if (isInnerUnit && parentPhrase === prevActivePhrase) {
+    if (prevActiveSpan && prevActiveSpan !== prevActivePhrase) prevActiveSpan.classList.remove('active');
+    span.classList.add('active');
+    prevActiveSpan = span;
+    prevShowTooltip(span, span.dataset.meaning, tooltip, block);
+    return;
+  }
+
+  prevClearAll();
+  span.classList.add('active');
+  prevActiveSpan = span;
+  if (span.classList.contains('phrase')) prevActivePhrase = span;
+  prevShowTooltip(span, span.dataset.meaning, tooltip, block);
+}
+
+function prevShowTooltip(span, meaning, tooltip, block) {
+  if (!tooltip || !meaning) return;
+  tooltip.textContent = meaning;
+  tooltip.style.display = 'block';
+  requestAnimationFrame(() => {
+    const sr   = span.getBoundingClientRect();
+    const tipW = tooltip.offsetWidth  || 140;
+    const tipH = tooltip.offsetHeight || 28;
+
+    // Use fixed positioning — position relative to viewport
+    let left = sr.left;
+    let top  = sr.top - tipH - 6;
+
+    // Clamp horizontally within viewport
+    if (left + tipW > window.innerWidth - 8) left = window.innerWidth - tipW - 8;
+    if (left < 8) left = 8;
+
+    // If no room above, show below
+    if (top < 8) top = sr.bottom + 6;
+
+    tooltip.style.left = left + 'px';
+    tooltip.style.top  = top  + 'px';
+  });
+}
+
+function togglePrevReveal(revealId, btnId) {
+  const el  = document.getElementById(revealId);
+  const btn = document.getElementById(btnId);
+  if (!el || !btn) return;
+  const showing = el.style.display === 'block';
+  el.style.display = showing ? 'none' : 'block';
+  btn.textContent = showing ? '＋ 意味を確認する' : '－ 意味をしまう';
+}
+
+function prevClearAll() {
+  document.querySelectorAll('.pw.active').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.prev-tooltip').forEach(t => t.style.display = 'none');
+  prevActiveSpan = null;
+  prevActivePhrase = null;
+}
+
+// clear preview tooltips on outside tap
+document.addEventListener('click', e => {
+  if (!e.target.closest('.pw')) prevClearAll();
+});
+
+// ── STEP 4 ───────────────────────────────────────
+function goCreateStep4() {
+  saveWip({ step: 4 });
+  buildChecklist();
+  showCreateStep(4);
+}
+
+function buildChecklist() {
+  const name = document.getElementById('lesson-name').value.trim() || 'lesson';
+  const safeName = name.replace(/\s+/g, '-').toLowerCase();
+
+  // Generate the lesson page code (simplified self-contained HTML)
+  const lessonHTML = generateLessonHTML(name);
+  const lessonCSS  = `/* style.css は index.html 内に統合されています */\n/* 別ファイルが必要な場合はここにスタイルを移動してください */`;
+  const lessonJS   = `/* script.js は index.html 内に統合されています */\n/* 別ファイルが必要な場合はここにJSを移動してください */`;
+  const lessonJSON = generateLessonJSON(name);
+
+  const steps = [
+    {
+      n: 1,
+      title: 'デスクトップに新規フォルダを作成',
+      desc: `以下の名前でフォルダを作成してください`,
+      extra: `<div class="file-item" style="margin-top:8px"><span class="file-name">${escHtml(name)}</span><button class="btn-small" onclick="copyText('${name.replace(/'/g,"\\'")}')">コピー</button></div>`
+    },
+    {
+      n: 2,
+      title: 'フォルダに音源ファイルを移動',
+      desc: '作成したフォルダに mp3 音源ファイルをすべて入れてください'
+    },
+    {
+      n: 3,
+      title: 'Visual Studio Code でフォルダを開く',
+      desc: 'VS Code を起動 → File → Open Folder でフォルダを選択'
+    },
+    {
+      n: 4,
+      title: 'index.html を作成してコードを貼り付ける',
+      desc: '新規ファイルを作成し、下のコードをコピーして貼り付けてください',
+      filename: 'index.html',
+      code: lessonHTML
+    },
+    {
+      n: 5,
+      title: 'Live Server で動作確認',
+      desc: 'index.html を右クリック → "Open with Live Server" でブラウザ確認'
+    },
+    {
+      n: 6,
+      title: 'GitHub に新しいリポジトリを作成',
+      desc: `GitHub.com にログイン → 右上の「＋」→「New repository」\n・Repository name: <code>${safeName}</code> をコピーして入力\n・「Public」を選択\n・「Create repository」をクリック`,
+    },
+    {
+      n: 7,
+      title: 'ファイルをアップロード',
+      desc: `作成したリポジトリのページで「uploading an existing file」をクリック\nフォルダ内の全ファイルをドラッグ＆ドロップ → 「Commit changes」`,
+    },
+    {
+      n: 8,
+      title: 'GitHub Pages を有効にする',
+      desc: 'Settings → Pages → Source: "Deploy from a branch" → branch: main → Save'
+    },
+    {
+      n: 9,
+      title: 'URLを取得する',
+      desc: `数分後、以下のURLでアクセスできるようになります\nhttps://【GitHubユーザー名】.github.io/${safeName}/`,
+    },
+  ];
+
+  const db = getDB();
+  const wip = db.wip.find(w => w.id === currentWipId);
+  const existingLesson = db.lessons.find(l => l.id === currentWipId);
+  const savedUrl = wip?.url || existingLesson?.url || '';
+  if (savedUrl) document.getElementById('lesson-url').value = savedUrl;
+
+  document.getElementById('checklist-container').innerHTML = steps.map(step => `
+    <div class="checklist-item" id="chk-${step.n}">
+      <input type="checkbox" onchange="toggleCheck(${step.n}, this)">
+      <div class="checklist-content">
+        <div class="checklist-title">${step.n}. ${escHtml(step.title)}</div>
+        <div class="checklist-desc">${step.desc ? step.desc.replace(/\n/g,'<br>').replace(/<code>/g,'<code style="font-family:DM Mono,monospace;background:#e0d8cc;padding:1px 4px;border-radius:3px">') : ''}</div>
+        ${step.filename ? `
+          <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+            <span class="badge badge-muted" style="font-family:DM Mono,monospace">${escHtml(step.filename)}</span>
+            <button class="btn-small" onclick="copyText('${step.filename}')">ファイル名コピー</button>
+          </div>
+          <div class="code-block" id="code-${step.n}">${escHtml(step.code||'').substring(0,800)}${(step.code||'').length > 800 ? '\n...(省略)' : ''}</div>
+          <button class="copy-code-btn" onclick="copyText(${JSON.stringify(step.code||'')})">コードをコピー</button>
+        ` : ''}
+        ${step.extra || ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleCheck(n, cb) {
+  document.getElementById('chk-'+n).classList.toggle('checked', cb.checked);
+}
+
+async function saveUrl() {
+  const url = document.getElementById('lesson-url').value.trim();
+  const db  = getDB();
+  const wipIdx = db.wip.findIndex(w => w.id === currentWipId);
+  if (wipIdx >= 0) { db.wip[wipIdx].url = url; }
+  const lessonIdx = db.lessons.findIndex(l => l.id === currentWipId);
+  if (lessonIdx >= 0) {
+    db.lessons[lessonIdx].url = url;
+    try { await pushLesson(db.lessons[lessonIdx]); } catch(e) { console.warn(e); }
+  }
+  saveDB(db);
+  toast('URLを保存しました');
+}
+
+async function finishLesson() {
+  const url  = document.getElementById('lesson-url').value.trim();
+  const name = document.getElementById('lesson-name').value.trim();
+  if (!url) { toast('URLを入力してから終了してください'); return; }
+
+  const db = getDB();
+  const existingIdx = db.lessons.findIndex(l => l.id === currentWipId);
+  const originalDate = existingIdx >= 0 ? db.lessons[existingIdx].date : todayStr();
+
+  const lesson = {
+    id: currentWipId, name, url,
+    date: originalDate, audioData
+  };
+
+  if (existingIdx >= 0) db.lessons[existingIdx] = lesson;
+  else db.lessons.push(lesson);
+  db.wip = db.wip.filter(w => w.id !== currentWipId);
+  saveDB(db);
+
+  try {
+    await pushLesson(lesson);
+    toast('レッスンを保存しました！');
+  } catch(e) {
+    toast('ローカル保存済み（クラウド同期エラー）');
+    console.error(e);
+  }
+  setTimeout(() => { showScreen('screen-top'); }, 600);
+}
+
+// ═══════════════════════════════════════════════
+// LESSON LIST
+// ═══════════════════════════════════════════════
+const LESSONS_PER_PAGE = 20;
+let lessonPage = 0;
+
+async function renderLessonList(doSync) {
+  if (doSync) await syncFromSupabase();
+  const db = getDB();
+  const q = (document.getElementById('lesson-search')?.value || '').toLowerCase();
+  let lessons = db.lessons.filter(l => !q || l.name.toLowerCase().includes(q));
+  lessons = [...lessons].sort((a,b) => b.date?.localeCompare(a.date));
+
+  document.getElementById('lessons-count-badge').textContent = lessons.length + '件';
+
+  // Group by month
+  const months = {};
+  lessons.forEach(l => {
+    const m = (l.date || '').substring(0,7);
+    (months[m] = months[m]||[]).push(l);
+  });
+
+  const container = document.getElementById('lesson-list-container');
+  if (!lessons.length) {
+    container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px">レッスンがありません</div>';
+    document.getElementById('lesson-pagination').innerHTML = '';
+    return;
+  }
+
+  container.innerHTML = Object.entries(months).sort((a,b)=>b[0].localeCompare(a[0])).map(([month, ls]) => `
+    <div class="month-header">${month}</div>
+    ${ls.map(l => `
+      <div class="lesson-list-item">
+        <div class="lesson-list-info">
+          <div class="lesson-list-name">${escHtml(l.name)}</div>
+          <div class="lesson-list-date">${l.date || ''}</div>
+        </div>
+        <div class="lesson-list-actions">
+          <button class="btn-small" onclick="window.open('${escHtml(l.url)}','_blank')">確認</button>
+          <button class="btn-small" onclick="editLesson('${l.id}')">編集</button>
+        </div>
+      </div>
+    `).join('')}
+  `).join('');
+}
+
+function editLesson(id) {
+  const db = getDB();
+  const lesson = db.lessons.find(l => l.id === id);
+  if (!lesson) return;
+  currentWipId = id;
+  audioData = lesson.audioData || [];
+  document.getElementById('lesson-name').value = lesson.name || '';
+  document.getElementById('audio-count').value = lesson.audioData?.length || 0;
+  document.getElementById('create-title').textContent = lesson.name || '';
+  // URL欄は step4 で復元（lesson-url は step4 表示時に読み込む）
+  // wip に一時保存してステップ管理
+  const wipIdx = db.wip.findIndex(w => w.id === id);
+  if (wipIdx < 0) {
+    db.wip.push({ id, name: lesson.name, audioCount: lesson.audioData?.length || 0,
+                  step: 1, date: lesson.date, audioData, url: lesson.url });
+    saveDB(db);
+  }
+  onLessonNameInput();
+  showCreateStep(1);
+  showScreen('screen-create');
+}
+
+// ═══════════════════════════════════════════════
+// PHRASE LIST
+// ═══════════════════════════════════════════════
+const VOCAB_PER_PAGE = 10;
+let phrasePage = 0;
+
+async function renderPhraseList(doSync) {
+  if (doSync) await syncFromSupabase();
+  const db = getDB();
+  const q = (document.getElementById('phrase-search')?.value || '').toLowerCase();
+  const entries = Object.entries(db.phrases || {}).filter(([term, meaning]) =>
+    !q || term.toLowerCase().includes(q) || (meaning||'').toLowerCase().includes(q)
+  );
+  document.getElementById('phrases-count-badge').textContent = Object.keys(db.phrases||{}).length + '件';
+
+  const totalPages = Math.ceil(entries.length / VOCAB_PER_PAGE);
+  if (phrasePage >= totalPages) phrasePage = Math.max(0, totalPages-1);
+  const page = entries.slice(phrasePage*VOCAB_PER_PAGE, (phrasePage+1)*VOCAB_PER_PAGE);
+
+  const container = document.getElementById('phrase-list-container');
+  if (!entries.length) {
+    container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px">フレーズがありません</div>';
+    document.getElementById('phrase-pagination').innerHTML = '';
+    return;
+  }
+
+  container.innerHTML = page.map(([term, meaning]) => {
+    // find lessons containing this phrase
+    const lessons = db.lessons.filter(l => JSON.stringify(l.audioData||'').includes(term));
+    return `
+      <div class="vocab-item">
+        <div class="vocab-top">
+          <span class="vocab-term">${escHtml(term)}</span>
+          <input class="vocab-meaning-input" type="text" value="${escHtml(meaning||'')}"
+            oninput="updateVocab('phrase','${term.replace(/'/g,"\\'")}',this.value)">
+          <button class="btn-small accent" onclick="updateVocabSave('phrase','${term.replace(/'/g,"\\'")}')">更新</button>
+        </div>
+        ${lessons.length ? `<div class="vocab-lessons">${lessons.map(l=>`<button class="btn-small" onclick="window.open('${escHtml(l.url||'')}','_blank')">${escHtml(l.name)}</button>`).join('')}</div>` : ''}
+      </div>`;
+  }).join('');
+
+  renderPagination('phrase-pagination', phrasePage, totalPages, p => { phrasePage = p; renderPhraseList(); });
+}
+
+// ═══════════════════════════════════════════════
+// WORD LIST
+// ═══════════════════════════════════════════════
+let wordPage = 0;
+
+async function renderWordList(doSync) {
+  if (doSync) await syncFromSupabase();
+  const db = getDB();
+  const q = (document.getElementById('word-search')?.value || '').toLowerCase();
+  const entries = Object.entries(db.words || {}).filter(([term, meaning]) =>
+    !q || term.toLowerCase().includes(q) || (meaning||'').toLowerCase().includes(q)
+  );
+  document.getElementById('words-count-badge').textContent = Object.keys(db.words||{}).length + '件';
+
+  const totalPages = Math.ceil(entries.length / VOCAB_PER_PAGE);
+  if (wordPage >= totalPages) wordPage = Math.max(0, totalPages-1);
+  const page = entries.slice(wordPage*VOCAB_PER_PAGE, (wordPage+1)*VOCAB_PER_PAGE);
+
+  const container = document.getElementById('word-list-container');
+  if (!entries.length) {
+    container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px">単語がありません</div>';
+    document.getElementById('word-pagination').innerHTML = '';
+    return;
+  }
+
+  container.innerHTML = page.map(([term, meaning]) => `
+    <div class="vocab-item">
+      <div class="vocab-top">
+        <span class="vocab-term">${escHtml(term)}</span>
+        <input class="vocab-meaning-input" type="text" value="${escHtml(meaning||'')}"
+          oninput="updateVocab('word','${term.replace(/'/g,"\\'")}',this.value)">
+        <button class="btn-small green" onclick="updateVocabSave('word','${term.replace(/'/g,"\\'")}')">更新</button>
+      </div>
+    </div>
+  `).join('');
+
+  renderPagination('word-pagination', wordPage, totalPages, p => { wordPage = p; renderWordList(); });
+}
+
+function updateVocab(type, term, value) {
+  const db = getDB();
+  if (type === 'phrase') db.phrases[term] = value;
+  else db.words[term] = value;
+  saveDB(db);
+}
+async function updateVocabSave(type, term) {
+  const db = getDB();
+  const meaning = type === 'phrase' ? (db.phrases[term] || '') : (db.words[term] || '');
+  try {
+    await pushVocab(type, term, meaning);
+    toast('更新しました');
+  } catch(e) {
+    toast('ローカル更新済み（クラウド同期エラー）');
+    console.error(e);
+  }
+}
+
+function renderPagination(id, current, total, onPage) {
+  const el = document.getElementById(id);
+  if (total <= 1) { el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <button class="btn-small" onclick="(${onPage.toString()})(${current-1})" ${current===0?'disabled':''}>← 前へ</button>
+    <span class="page-num">${current+1} / ${total}</span>
+    <button class="btn-small" onclick="(${onPage.toString()})(${current+1})" ${current>=total-1?'disabled':''}>次へ →</button>
+  `;
+}
+
+// ═══════════════════════════════════════════════
+// CODE GENERATORS
+// ═══════════════════════════════════════════════
+function generateLessonHTML(name) {
+  // Generates a standalone lesson page HTML based on audioData
+  const title = escHtml(name);
+  const safeName = name.replace(/\s+/g,'-');
+
+  // Build lesson data as JSON
+  const lessonData = audioData.map((ad, ai) => ({
+    id: ai+1,
+    file: `${name}-A${ai+1}.mp3`,
+    sentences: (ad.sentences||[]).map((s,si) => ({
+      text: s.text,
+      jpMeaning: s.jpMeaning || '',
+      phrases: (s.phrases||[]).map((ph,pi) => ({
+        term: ph,
+        meaning: s.phrases_meanings?.[pi] || '',
+        units: (s.phraseUnits?.[ph]||[]).map((u,ui) => ({
+          term: u,
+          meaning: s.words_meanings?.[(s.words||[]).indexOf(u)] || ''
+        }))
+      })),
+      words: (s.words||[]).filter(w => !Object.values(s.phraseUnits||{}).flat().includes(w)).map((w,wi) => ({
+        term: w,
+        meaning: s.words_meanings?.[wi] || ''
+      }))
+    }))
+  }));
+
+  return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${title}</title>
+<!-- ★ このファイルをindex.htmlとして保存し、同じフォルダに音源ファイルを置いてください -->
+<script>
+const LESSON_NAME = ${JSON.stringify(name)};
+const LESSON_DATA = ${JSON.stringify(lessonData, null, 2)};
+const SPEED_FILE  = ${JSON.stringify(name)} + ' ×';
+<\/script>
+</head>
+<body>
+<!-- レッスンページのHTMLは lesson-demo.html を参照してください -->
+<!-- このファイルにはレッスンデータが含まれています -->
+<p style="font-family:sans-serif;padding:20px">
+  レッスン: <strong>${title}</strong><br>
+  このHTMLをベースにレッスンページを構築してください。<br>
+  データ: <code>LESSON_DATA</code> 変数に格納済み
+</p>
+</body>
+</html>`;
+}
+
+function generateLessonJSON(name) {
+  const data = {
+    lesson: name,
+    created: todayStr(),
+    audios: audioData.map((ad, ai) => ({
+      id: ai+1,
+      sentences: (ad.sentences||[]).map(s => ({
+        text: s.text,
+        jpMeaning: s.jpMeaning||'',
+        phrases: (s.phrases||[]).map((ph,pi) => ({ term: ph, meaning: s.phrases_meanings?.[pi]||'' })),
+        words: (s.words||[]).map((w,wi) => ({ term: w, meaning: s.words_meanings?.[wi]||'' }))
+      }))
+    }))
+  };
+  return JSON.stringify(data, null, 2);
+}
+
+// ═══════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function escRegex(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+}
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// ── INIT ────────────────────────────────────────
+(async () => {
+  // まずローカルキャッシュで即時表示
+  renderTop(false);
+  // Supabaseから最新データを取得して再描画
+  const synced = await syncFromSupabase();
+  renderTop(false);
+})();
+</script>
+</body>
+</html>
