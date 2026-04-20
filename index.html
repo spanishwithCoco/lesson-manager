@@ -1338,6 +1338,23 @@ function onLessonNameInput() {
 }
 function onAudioCountInput() { checkStep1Ready(); }
 
+// ══════════════════════════════════════════════
+// WAVEFORM ENGINE
+// ══════════════════════════════════════════════
+const wf = {
+  buffer: null,
+  audioCtx: null,
+  sourceNode: null,
+  fileName: '',
+  selStart: 0,
+  selEnd: 0,
+  dragging: false,
+  dragStartX: 0,
+  playStartTime: 0,
+  playOffset: 0,
+  rafId: null,
+};
+
 function checkStep1Ready() {
   const name = document.getElementById('lesson-name').value.trim();
   const ready = name.length > 0 && wf.buffer !== null;
@@ -1354,25 +1371,6 @@ function goCreateStep2() {
   renderSegmentList();
   showCreateStep(2);
 }
-
-// ══════════════════════════════════════════════
-// WAVEFORM ENGINE
-// ══════════════════════════════════════════════
-const wf = {
-  buffer: null,       // AudioBuffer
-  audioCtx: null,
-  sourceNode: null,
-  fileName: '',
-  // selection
-  selStart: 0,        // seconds
-  selEnd: 0,
-  dragging: false,
-  dragStartX: 0,
-  // playback
-  playStartTime: 0,
-  playOffset: 0,
-  rafId: null,
-};
 
 // ── Upload handler ──
 async function onMp3Upload(input) {
