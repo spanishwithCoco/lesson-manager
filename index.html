@@ -2332,7 +2332,23 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 .section-badge{display:inline-flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 14px;font-size:12px;color:var(--muted);margin-bottom:16px;}
 .section-badge .num{background:var(--accent);color:#000;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;}
 .audio-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;}
-.audio-label{font-size:11px;color:var(--muted);font-family:'Space Mono',monospace;margin-bottom:10px;}
+.audio-label{font-size:11px;color:var(--muted);font-family:'Space Mono',monospace;margin-bottom:12px;}
+/* ── Custom Audio Player ── */
+.custom-player{display:flex;flex-direction:column;gap:10px;}
+.player-main-row{display:flex;align-items:center;gap:10px;}
+.play-pause-btn{width:36px;height:36px;border-radius:50%;background:var(--accent);border:none;color:#000;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform .15s;}
+.play-pause-btn:hover{transform:scale(1.1);}
+.time-display{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);white-space:nowrap;flex-shrink:0;}
+.progress-wrap{flex:1;display:flex;align-items:center;position:relative;height:20px;cursor:pointer;}
+.progress-track{width:100%;height:4px;background:var(--border);border-radius:4px;position:relative;overflow:visible;}
+.progress-fill{height:100%;background:var(--accent);border-radius:4px;width:0%;transition:width .1s linear;pointer-events:none;}
+.progress-thumb{width:12px;height:12px;background:var(--accent);border-radius:50%;position:absolute;top:50%;left:0%;transform:translate(-50%,-50%);transition:left .1s linear;box-shadow:0 0 4px rgba(0,0,0,.4);}
+.speed-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.speed-label{font-size:11px;color:var(--muted);font-family:'Space Mono',monospace;flex-shrink:0;}
+.spd-btn{padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'Space Mono',monospace;font-size:11px;cursor:pointer;transition:all .18s;}
+.spd-btn:hover{border-color:var(--accent);color:var(--accent);}
+.spd-btn.active{background:var(--accent);border-color:var(--accent);color:#000;font-weight:700;}
+/* legacy speed-btns for page5 shadowing */
 .speed-btns{display:flex;gap:8px;flex-wrap:wrap;}
 .speed-btn{padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);font-family:'Space Mono',monospace;font-size:12px;cursor:pointer;transition:all .18s;display:flex;align-items:center;gap:6px;}
 .speed-btn:hover,.speed-btn.playing{background:var(--accent);border-color:var(--accent);color:#000;}
@@ -2454,6 +2470,106 @@ function toggleTextPanel(){
   btn.classList.toggle('open',isOpen);
   btn.querySelector('span').textContent=isOpen?'\\u30c6\\u30ad\\u30b9\\u30c8\\u3092\\u3057\\u307e\\u3046':'\\u30c6\\u30ad\\u30b9\\u30c8\\u3092\\u898b\\u306a\\u304c\\u3089\\u7df4\\u7fd2\\u3059\\u308b';
 }
+// ── Main Player (Page 1) ──
+var mainAudio = null;
+var mainSpeed = 1;
+var mainRaf = null;
+var mainFile1 = '` + safeName + ` ×1.mp3';
+var mainFile075 = '` + safeName + ` ×0.75.mp3';
+var mainFile05 = '` + safeName + ` ×0.5.mp3';
+function mainPlayerFile(){
+  if(mainSpeed===0.75)return mainFile075;
+  if(mainSpeed===0.5)return mainFile05;
+  return mainFile1;
+}
+function fmtTime(s){
+  var m=Math.floor(s/60);var ss=Math.floor(s%60);
+  return m+':'+(ss<10?'0':'')+ss;
+}
+function mainPlayerUpdateBar(){
+  if(!mainAudio)return;
+  var pct=mainAudio.duration?mainAudio.currentTime/mainAudio.duration*100:0;
+  var fill=document.getElementById('main-fill');
+  var thumb=document.getElementById('main-thumb');
+  var timeEl=document.getElementById('main-time');
+  if(fill)fill.style.width=pct+'%';
+  if(thumb)thumb.style.left=pct+'%';
+  if(timeEl)timeEl.textContent=fmtTime(mainAudio.currentTime)+' / '+fmtTime(mainAudio.duration||0);
+  mainRaf=requestAnimationFrame(mainPlayerUpdateBar);
+}
+function mainPlayerLoad(resume){
+  var pos=mainAudio?mainAudio.currentTime:0;
+  if(mainAudio){mainAudio.pause();cancelAnimationFrame(mainRaf);}
+  mainAudio=new Audio(mainPlayerFile());
+  mainAudio.onended=function(){
+    var btn=document.getElementById('main-pp-btn');
+    if(btn)btn.textContent='▶';
+    cancelAnimationFrame(mainRaf);
+    mainPlayerUpdateBar();
+  };
+  mainAudio.onloadedmetadata=function(){
+    if(resume&&pos>0)mainAudio.currentTime=pos;
+  };
+  return mainAudio;
+}
+function mainPlayerToggle(){
+  var btn=document.getElementById('main-pp-btn');
+  if(!mainAudio||mainAudio.ended||mainAudio.paused&&mainAudio.currentTime===0){
+    // fresh start or ended
+    if(!mainAudio||mainAudio.ended)mainPlayerLoad(false);
+    mainAudio.play().then(function(){
+      if(btn)btn.textContent='⏸';
+      cancelAnimationFrame(mainRaf);
+      mainPlayerUpdateBar();
+    }).catch(function(){});
+  } else if(mainAudio.paused){
+    mainAudio.play().then(function(){
+      if(btn)btn.textContent='⏸';
+      cancelAnimationFrame(mainRaf);
+      mainPlayerUpdateBar();
+    }).catch(function(){});
+  } else {
+    mainAudio.pause();
+    if(btn)btn.textContent='▶';
+    cancelAnimationFrame(mainRaf);
+  }
+}
+function mainPlayerSeek(e){
+  var wrap=document.getElementById('main-progress-wrap');
+  if(!wrap)return;
+  var rect=wrap.getBoundingClientRect();
+  var pct=(e.clientX-rect.left)/rect.width;
+  pct=Math.max(0,Math.min(1,pct));
+  if(!mainAudio){
+    mainPlayerLoad(false);
+    mainAudio.onloadedmetadata=function(){mainAudio.currentTime=mainAudio.duration*pct;mainPlayerUpdateBar();};
+    return;
+  }
+  if(mainAudio.duration)mainAudio.currentTime=mainAudio.duration*pct;
+  mainPlayerUpdateBar();
+}
+function mainPlayerSetSpeed(spd,btn){
+  mainSpeed=spd;
+  document.querySelectorAll('.spd-btn').forEach(function(b){b.classList.remove('active');});
+  if(btn)btn.classList.add('active');
+  var wasPlaying=mainAudio&&!mainAudio.paused;
+  var pos=mainAudio?mainAudio.currentTime:0;
+  var dur=mainAudio&&mainAudio.duration?mainAudio.duration:0;
+  mainPlayerLoad(false);
+  if(dur>0){
+    mainAudio.onloadedmetadata=function(){
+      mainAudio.currentTime=pos;
+      if(wasPlaying){
+        mainAudio.play().then(function(){
+          var ppBtn=document.getElementById('main-pp-btn');
+          if(ppBtn)ppBtn.textContent='⏸';
+          cancelAnimationFrame(mainRaf);mainPlayerUpdateBar();
+        }).catch(function(){});
+      } else {mainPlayerUpdateBar();}
+    };
+  }
+}
+// ── Legacy playAudio (pages 2-5) ──
 var currentAudio=null;
 function playAudio(file,btn){
   if(currentAudio){currentAudio.pause();currentAudio=null;document.querySelectorAll('.playing').forEach(function(b){b.classList.remove('playing');});}
@@ -2529,11 +2645,24 @@ function completeLesson(){
     + '<div class="page active" id="page1">'
     + '<div class="section-badge"><span class="num">1</span> 音源を聴く</div>'
     + '<div class="purpose-box">何度も音声を聴いて耳を慣らしましょう。頭の中で自動再生できるくらい繰り返し聴くのが目的です。</div>'
-    + '<div class="audio-card"><div class="audio-label">▶ 全体音源</div><div class="speed-btns">'
-    + '<button class="speed-btn" onclick="playAudio(\'' + safeName + ' ×1.mp3\',this)"><span>▶</span> 通常速度</button>'
-    + '<button class="speed-btn" onclick="playAudio(\'' + safeName + ' ×0.75.mp3\',this)"><span>▶</span> 0.75倍速</button>'
-    + '<button class="speed-btn" onclick="playAudio(\'' + safeName + ' ×0.5.mp3\',this)"><span>▶</span> 0.5倍速</button>'
-    + '</div></div>'
+    + '<div class="audio-card">'
+    + '<div class="audio-label">全体音源</div>'
+    + '<div class="custom-player" id="main-player">'
+    + '<div class="player-main-row">'
+    + '<button class="play-pause-btn" id="main-pp-btn" onclick="mainPlayerToggle()">▶</button>'
+    + '<div class="progress-wrap" id="main-progress-wrap" onclick="mainPlayerSeek(event)">'
+    + '<div class="progress-track"><div class="progress-fill" id="main-fill"></div><div class="progress-thumb" id="main-thumb"></div></div>'
+    + '</div>'
+    + '<span class="time-display" id="main-time">0:00 / 0:00</span>'
+    + '</div>'
+    + '<div class="speed-row">'
+    + '<span class="speed-label">速度：</span>'
+    + '<button class="spd-btn active" id="spd-1" onclick="mainPlayerSetSpeed(1,this)">×1</button>'
+    + '<button class="spd-btn" id="spd-075" onclick="mainPlayerSetSpeed(0.75,this)">×0.75</button>'
+    + '<button class="spd-btn" id="spd-05" onclick="mainPlayerSetSpeed(0.5,this)">×0.5</button>'
+    + '</div>'
+    + '</div>'
+    + '</div>'
     + '<div class="nav-row"><button class="next-btn" onclick="goTo(2)">次へ ›</button></div>'
     + '</div>\n'
 
