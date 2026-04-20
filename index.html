@@ -2254,18 +2254,16 @@ function generateLessonHTML(name) {
       + '</div>';
 
     // ── PAGE 3: Meaning ──
-    // Audio block wrapping play button + all sentences
     page3Audios += '<div class="audio-section" style="margin-bottom:20px">'
-      + '<div class="audio-card" style="margin-bottom:12px;border-radius:12px 12px 0 0;margin-bottom:0;border-bottom:none;border-radius:12px">'
-      + '<div style="display:flex;align-items:center;gap:12px">'
+      + '<div class="p3-audio-header">'
       + '<button class="mini-play-btn" onclick="playAudio(\'' + audioFile + '\',this)">▶</button>'
-      + '<span class="audio-label" style="margin-bottom:0">Audio ' + (ai+1) + '</span>'
-      + '</div>'
+      + '<span class="audio-label" style="margin-bottom:0;font-size:12px;color:var(--muted)">Audio ' + (ai+1) + '</span>'
       + '</div>';
 
     sentences.forEach((s, si) => {
       const bid = 'sb' + ai + '_' + si;
-      page3Audios += '<div class="sentence-block" id="' + bid + '" style="border-radius:' + (si === sentences.length-1 ? '0 0 12px 12px' : '0') + ';border-top:none;margin-bottom:0">'
+      const isLast = si === sentences.length - 1;
+      page3Audios += '<div class="p3-sentence" id="' + bid + '" style="' + (isLast ? 'border-radius:0 0 12px 12px' : '') + '">'
         + '<div class="sentence-num">センテンス ' + (si+1) + '</div>'
         + '<div class="sentence-text">' + buildLessonSpans(s, bid) + '</div>'
         + '<div class="tooltip-popup" id="tooltip-' + bid + '"></div>'
@@ -2279,11 +2277,21 @@ function generateLessonHTML(name) {
     page3Audios += '</div>'; // close audio-section
 
     // ── PAGE 4: Back-translate ──
-    page4Audios += '<div class="audio-card" style="margin-bottom:8px"><div class="audio-label">Audio ' + (ai+1) + '</div></div>';
+    // bt-jp shows: user's input from page3 (ldata[m{ai}_{si}]) if available, else registered jpMeaning
+    page4Audios += '<div class="audio-section" style="margin-bottom:20px">'
+      + '<div class="p3-audio-header">'
+      + '<span class="audio-label" style="margin-bottom:0;font-size:12px;color:var(--muted)">Audio ' + (ai+1) + '</span>'
+      + '</div>';
+
     sentences.forEach((s, si) => {
-      page4Audios += '<div class="bt-block">'
+      const isLast = si === sentences.length - 1;
+      const fallback = s.jpMeaning || '（意味未登録）';
+      page4Audios += '<div class="p3-sentence" style="' + (isLast ? 'border-radius:0 0 12px 12px' : '') + '">'
         + '<div class="sentence-num">センテンス ' + (si+1) + '</div>'
-        + '<div class="bt-jp">' + (s.jpMeaning || '（意味未登録）') + '</div>'
+        // bt-jp: shows user's page3 input via JS at load time; fallback to registered meaning
+        + '<div class="bt-jp" id="bt-jp-' + ai + '-' + si + '" data-fallback="' + fallback.replace(/"/g,'&quot;') + '">'
+        + fallback
+        + '</div>'
         + '<textarea class="bt-input" placeholder="スペイン語で書いてみましょう..." oninput="saveInput(\'bt' + ai + '_' + si + '\',this.value)"></textarea>'
         + '<div class="reveal-group">'
         + '<button class="reveal-small-btn" onclick="playAudio(\'' + audioFile + '\',this)">▶ 音声を聴く</button>'
@@ -2292,6 +2300,8 @@ function generateLessonHTML(name) {
         + '<div class="reveal-text" id="bt-text-' + ai + '-' + si + '">' + cleanText(s.text) + '</div>'
         + '</div>';
     });
+
+    page4Audios += '</div>'; // close audio-section
 
     // ── PAGE 5: Shadowing ──
     const bid5 = 'shad' + ai;
@@ -2338,10 +2348,11 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 .reveal-text{display:none;margin-top:8px;padding:10px 12px;background:var(--surface2);border-radius:8px;font-size:13px;color:var(--text);border-left:2px solid var(--accent);font-style:italic;}
 .reveal-text.show{display:block;}
 .sentence-block{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:16px;position:relative;}
-.audio-section .audio-card{border-radius:12px 12px 0 0;border-bottom:none;margin-bottom:0;}
-.audio-section .sentence-block{border-radius:0;border-top:none;margin-bottom:0;border-bottom:1px solid var(--border);}
-.audio-section .sentence-block:last-child{border-radius:0 0 12px 12px;border-bottom:1px solid var(--border);margin-bottom:0;}
-.audio-section{margin-bottom:20px;}
+.audio-section{margin-bottom:24px;border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.p3-audio-header{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--border);}
+.p3-sentence{background:var(--surface);padding:16px 18px;border-top:1px solid rgba(255,255,255,0.04);position:relative;}
+.p3-sentence:first-of-type{border-top:none;}
+.audio-section .p3-sentence+.p3-sentence{border-top:1px solid var(--border);}
 .sentence-num{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:8px;}
 .sentence-text{font-size:17px;line-height:1.9;margin-bottom:12px;color:var(--text);}
 .w{cursor:pointer;color:var(--text);border-radius:3px;padding:1px 3px;transition:background .15s,color .15s;position:relative;display:inline;}
@@ -2401,6 +2412,14 @@ window.addEventListener('DOMContentLoaded',function(){
     var m=t.getAttribute('oninput');
     var k=m&&m.match(/saveInput\\('([^']+)'/);
     if(k&&ldata[k[1]])t.value=ldata[k[1]];
+  });
+  // Page4: show user's page3 input as bt-jp, fallback to registered meaning
+  document.querySelectorAll('[id^="bt-jp-"]').forEach(function(el){
+    var parts=el.id.replace('bt-jp-','').split('-');
+    var ai=parts[0],si=parts[1];
+    var userJp=ldata['m'+ai+'_'+si];
+    if(userJp&&userJp.trim()){el.textContent=userJp;}
+    // else keep the data-fallback content already set
   });
 });
 var currentPage=1;
