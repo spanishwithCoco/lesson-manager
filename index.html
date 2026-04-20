@@ -723,6 +723,95 @@ textarea.input-field { resize: vertical; min-height: 70px; }
   .lesson-list-actions { width: 100%; justify-content: flex-end; }
   .stats-row { grid-template-columns: 1fr 1fr; }
 }
+
+/* ── WAVEFORM EDITOR ── */
+.upload-label {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 28px 16px;
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  cursor: pointer; color: var(--muted);
+  font-size: 14px; transition: all .2s;
+  text-align: center;
+}
+.upload-label:hover { border-color: var(--accent); color: var(--accent); }
+.upload-label.loaded { border-color: var(--green); color: var(--green); border-style: solid; }
+.upload-icon { font-size: 28px; }
+
+.waveform-hint {
+  font-size: 12px; color: var(--muted); margin-bottom: 10px;
+}
+.waveform-wrap {
+  position: relative;
+  background: #111;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: crosshair;
+  user-select: none;
+  margin-bottom: 8px;
+  height: 90px;
+}
+#waveform-canvas {
+  display: block; width: 100%; height: 90px;
+}
+.waveform-selection {
+  position: absolute; top: 0; bottom: 0;
+  background: rgba(244,168,67,0.25);
+  border-left: 2px solid var(--accent);
+  border-right: 2px solid var(--accent);
+  pointer-events: none;
+  display: none;
+}
+.waveform-playhead {
+  position: absolute; top: 0; bottom: 0; width: 2px;
+  background: #fff; pointer-events: none;
+  display: none;
+}
+.waveform-time {
+  font-family: 'DM Mono', monospace; font-size: 12px;
+  color: var(--accent); margin-bottom: 10px; text-align: center;
+}
+.waveform-controls {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+
+/* Audio segment cards in step2 */
+.segment-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.segment-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+}
+.segment-label {
+  font-family: 'DM Mono', monospace; font-size: 12px;
+  color: var(--accent); font-weight: 500; flex: 1;
+}
+.segment-time {
+  font-family: 'DM Mono', monospace; font-size: 11px;
+  color: var(--muted);
+}
+.segment-body { padding: 14px; }
+.segment-mini-play {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--accent); border: none; color: #000;
+  font-size: 10px; cursor: pointer; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .15s;
+}
+.segment-mini-play:hover { transform: scale(1.1); }
+.segment-delete {
+  background: none; border: none; color: var(--muted);
+  font-size: 16px; cursor: pointer; padding: 2px 6px;
+  border-radius: 4px; transition: color .15s;
+}
+.segment-delete:hover { color: var(--red); }
 </style>
 </head>
 <body>
@@ -815,15 +904,15 @@ textarea.input-field { resize: vertical; min-height: 70px; }
         <label class="input-label">レッスン名</label>
         <input type="text" class="input-field" id="lesson-name" placeholder="例：Bluey Ep1-1" oninput="onLessonNameInput()">
       </div>
-      <div class="input-group">
-        <label class="input-label">オーディオ数（最大30）</label>
-        <input type="number" class="input-field" id="audio-count" min="1" max="30" placeholder="例：3" oninput="onAudioCountInput()">
-      </div>
     </div>
 
-    <div class="card" id="file-card" style="display:none">
-      <div class="card-label">用意するオーディオファイル</div>
-      <div class="file-list" id="file-list"><!-- JS --></div>
+    <div class="card" id="upload-card">
+      <div class="card-label">音源ファイルをアップロード（通常速度のmp3 1本）</div>
+      <label class="upload-label" id="upload-label" for="mp3-upload">
+        <span class="upload-icon">🎵</span>
+        <span id="upload-text">ここをタップしてmp3を選択</span>
+      </label>
+      <input type="file" id="mp3-upload" accept="audio/*" style="display:none" onchange="onMp3Upload(this)">
     </div>
 
     <button class="btn-primary" id="start-btn" onclick="goCreateStep2()" style="opacity:.5;pointer-events:none">
@@ -833,14 +922,36 @@ textarea.input-field { resize: vertical; min-height: 70px; }
 
   <!-- STEP 2 -->
   <div class="container" id="create-step2" style="display:none">
+    <!-- Waveform editor -->
+    <div class="card" id="waveform-card">
+      <div class="card-label">音源を区間で区切る</div>
+      <div class="waveform-hint">波形をタップ＆ドラッグで区間を選択 → 「Audio N として保存」</div>
+      <div class="waveform-wrap">
+        <canvas id="waveform-canvas"></canvas>
+        <div class="waveform-playhead" id="waveform-playhead"></div>
+        <div class="waveform-selection" id="waveform-selection"></div>
+      </div>
+      <div class="waveform-time" id="waveform-time">00:00 〜 00:00</div>
+      <div class="waveform-controls">
+        <button class="btn-small" id="preview-btn" onclick="previewSelection()">▶ 選択区間を再生</button>
+        <button class="btn-small" onclick="stopPreview()">■ 停止</button>
+        <button class="btn-small accent" onclick="saveAudioSegment()">＋ Audio として保存</button>
+      </div>
+    </div>
+
+    <!-- Audio segments list -->
+    <div id="audio-segments-list"><!-- JS --></div>
+
     <div class="syntax-hint">
-      <strong>入力ルール</strong><br>
+      <strong>テキスト入力ルール</strong><br>
       センテンスを分ける: <code>"センテンス1" "センテンス2"</code><br>
       フレーズ登録 <code>[hacen que]</code>　単語登録 <code>(los juegos)</code><br>
       フレーズ内に単語: <code>[por (un rato)]</code>
     </div>
-    <div id="audio-inputs-container"><!-- JS --></div>
-    <button class="btn-primary" onclick="goCreateStep3()">プレビューを確認する →</button>
+
+    <button class="btn-primary" id="step2-next-btn" onclick="goCreateStep3()" style="opacity:.5;pointer-events:none">
+      プレビューを確認する →
+    </button>
   </div>
 
   <!-- STEP 3 -->
@@ -1196,57 +1307,349 @@ function confirmBackToTop() {
 function onLessonNameInput() {
   const name = document.getElementById('lesson-name').value.trim();
   document.getElementById('create-title').textContent = name || '新しいレッスン';
-  rebuildFileList();
   checkStep1Ready();
-  // saveWip はステップ2開始時のみ行う
 }
-function onAudioCountInput() {
-  rebuildFileList();
-  checkStep1Ready();
-  // saveWip はステップ2開始時のみ行う
-}
+function onAudioCountInput() { checkStep1Ready(); }
 
 function checkStep1Ready() {
   const name = document.getElementById('lesson-name').value.trim();
-  const n = parseInt(document.getElementById('audio-count').value);
-  const ready = name.length > 0 && n >= 1 && n <= 30;
+  const ready = name.length > 0 && wf.buffer !== null;
   document.getElementById('start-btn').style.opacity = ready ? '1' : '.5';
   document.getElementById('start-btn').style.pointerEvents = ready ? 'auto' : 'none';
 }
 
-function rebuildFileList() {
-  const name = document.getElementById('lesson-name').value.trim() || 'レッスン名';
-  const n = parseInt(document.getElementById('audio-count').value) || 0;
-  const fc = document.getElementById('file-card');
-  const fl = document.getElementById('file-list');
-  if (!name || n < 1) { fc.style.display = 'none'; return; }
-  fc.style.display = 'block';
-  const files = [
-    `${name} ×1.mp3`,
-    `${name} ×0.75.mp3`,
-    `${name} ×0.5.mp3`,
-    ...Array.from({length: n}, (_,i) => `${name}-A${i+1}.mp3`)
-  ];
-  fl.innerHTML = files.map(f => `
-    <div class="file-item">
-      <span class="file-name">${escHtml(f)}</span>
-      <button class="btn-small" onclick="copyText('${f.replace(/'/g,"\\'")}')">コピー</button>
-    </div>
-  `).join('');
-}
+function rebuildFileList() {} // no longer used
 
 function goCreateStep2() {
   const name = document.getElementById('lesson-name').value.trim();
-  const n = parseInt(document.getElementById('audio-count').value);
-  if (!name || !n) return;
-
-  // initialise audioData if needed
-  while (audioData.length < n) audioData.push({ rawText: '', sentences: [] });
-  while (audioData.length > n) audioData.pop();
-
+  if (!name || !wf.buffer) return;
   saveWip({ step: 2 });
-  buildAudioInputs(name, n);
+  renderSegmentList();
   showCreateStep(2);
+}
+
+// ══════════════════════════════════════════════
+// WAVEFORM ENGINE
+// ══════════════════════════════════════════════
+const wf = {
+  buffer: null,       // AudioBuffer
+  audioCtx: null,
+  sourceNode: null,
+  fileName: '',
+  // selection
+  selStart: 0,        // seconds
+  selEnd: 0,
+  dragging: false,
+  dragStartX: 0,
+  // playback
+  playStartTime: 0,
+  playOffset: 0,
+  rafId: null,
+};
+
+// ── Upload handler ──
+async function onMp3Upload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  toast('音源を読み込み中...');
+  wf.audioCtx = wf.audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+  const arrayBuf = await file.arrayBuffer();
+  wf.buffer = await wf.audioCtx.decodeAudioData(arrayBuf);
+  wf.fileName = file.name;
+  wf.selStart = 0;
+  wf.selEnd = wf.buffer.duration;
+
+  // Update upload label
+  const lbl = document.getElementById('upload-label');
+  lbl.classList.add('loaded');
+  document.getElementById('upload-text').textContent = '✓ ' + file.name;
+
+  drawWaveform();
+  updateSelectionUI();
+  checkStep1Ready();
+  toast('読み込み完了！');
+}
+
+// ── Draw waveform on canvas ──
+function drawWaveform() {
+  const canvas = document.getElementById('waveform-canvas');
+  if (!canvas || !wf.buffer) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth;
+  const H = 90;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const data = wf.buffer.getChannelData(0);
+  const step = Math.ceil(data.length / W);
+  ctx.clearRect(0, 0, W, H);
+
+  // Already-saved segments: draw in green
+  audioData.forEach(ad => {
+    if (ad.startTime === undefined) return;
+    const x1 = (ad.startTime / wf.buffer.duration) * W;
+    const x2 = (ad.endTime   / wf.buffer.duration) * W;
+    ctx.fillStyle = 'rgba(58,125,85,0.2)';
+    ctx.fillRect(x1, 0, x2-x1, H);
+  });
+
+  // Waveform bars
+  ctx.fillStyle = '#f4a843';
+  for (let i = 0; i < W; i++) {
+    let max = 0;
+    for (let j = i*step; j < (i+1)*step && j < data.length; j++) {
+      const v = Math.abs(data[j]);
+      if (v > max) max = v;
+    }
+    const h = max * H * 0.9;
+    ctx.fillRect(i, (H - h) / 2, 1, h);
+  }
+}
+
+// ── Touch/mouse selection ──
+function wfPointerPos(e, canvas) {
+  const rect = canvas.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+}
+
+function wfInitEvents() {
+  const wrap = document.querySelector('.waveform-wrap');
+  if (!wrap || wrap._wfBound) return;
+  wrap._wfBound = true;
+
+  const down = (e) => {
+    if (!wf.buffer) return;
+    e.preventDefault();
+    const canvas = document.getElementById('waveform-canvas');
+    const p = wfPointerPos(e, canvas);
+    wf.selStart = p * wf.buffer.duration;
+    wf.selEnd   = wf.selStart;
+    wf.dragging = true;
+    updateSelectionUI();
+  };
+  const move = (e) => {
+    if (!wf.dragging || !wf.buffer) return;
+    e.preventDefault();
+    const canvas = document.getElementById('waveform-canvas');
+    const p = wfPointerPos(e, canvas);
+    wf.selEnd = p * wf.buffer.duration;
+    updateSelectionUI();
+  };
+  const up = () => { wf.dragging = false; };
+
+  wrap.addEventListener('mousedown',  down);
+  wrap.addEventListener('touchstart', down, { passive: false });
+  wrap.addEventListener('mousemove',  move);
+  wrap.addEventListener('touchmove',  move, { passive: false });
+  wrap.addEventListener('mouseup',    up);
+  wrap.addEventListener('touchend',   up);
+  document.addEventListener('mouseup', up);
+}
+
+function updateSelectionUI() {
+  if (!wf.buffer) return;
+  const start = Math.min(wf.selStart, wf.selEnd);
+  const end   = Math.max(wf.selStart, wf.selEnd);
+  const dur   = wf.buffer.duration;
+  const canvas = document.getElementById('waveform-canvas');
+  const W = canvas ? canvas.offsetWidth : 1;
+
+  const sel = document.getElementById('waveform-selection');
+  if (sel) {
+    sel.style.display = (end - start) > 0.05 ? 'block' : 'none';
+    sel.style.left  = ((start / dur) * 100) + '%';
+    sel.style.width = (((end - start) / dur) * 100) + '%';
+  }
+
+  const timeEl = document.getElementById('waveform-time');
+  if (timeEl) timeEl.textContent = fmtTime(start) + ' 〜 ' + fmtTime(end)
+    + '  (' + (end - start).toFixed(1) + '秒)';
+
+  // update wf.selStart/End to normalized order
+  wf.selStart = start;
+  wf.selEnd   = end;
+}
+
+function fmtTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = (sec % 60).toFixed(1).padStart(4, '0');
+  return m + ':' + s;
+}
+
+// ── Preview selected range ──
+function previewSelection() {
+  if (!wf.buffer) return;
+  stopPreview();
+  const start = wf.selStart;
+  const end   = wf.selEnd;
+  if (end - start < 0.05) { toast('区間を選択してください'); return; }
+
+  const src = wf.audioCtx.createBufferSource();
+  src.buffer = wf.buffer;
+  src.connect(wf.audioCtx.destination);
+  src.start(0, start, end - start);
+  wf.sourceNode = src;
+  wf.playOffset = start;
+  wf.playStartTime = wf.audioCtx.currentTime;
+
+  animPlayhead(start, end);
+
+  src.onended = () => {
+    stopPreview();
+  };
+}
+
+function stopPreview() {
+  if (wf.sourceNode) { try { wf.sourceNode.stop(); } catch(e){} wf.sourceNode = null; }
+  cancelAnimationFrame(wf.rafId);
+  const ph = document.getElementById('waveform-playhead');
+  if (ph) ph.style.display = 'none';
+}
+
+function animPlayhead(start, end) {
+  const ph = document.getElementById('waveform-playhead');
+  const dur = wf.buffer.duration;
+  if (!ph) return;
+  ph.style.display = 'block';
+  const tick = () => {
+    const elapsed = wf.audioCtx.currentTime - wf.playStartTime;
+    const pos = start + elapsed;
+    if (pos >= end) { ph.style.display = 'none'; return; }
+    ph.style.left = ((pos / dur) * 100) + '%';
+    wf.rafId = requestAnimationFrame(tick);
+  };
+  tick();
+}
+
+// ── Save selection as Audio segment ──
+function saveAudioSegment() {
+  if (!wf.buffer) return;
+  const start = wf.selStart;
+  const end   = wf.selEnd;
+  if (end - start < 0.1) { toast('区間が短すぎます（0.1秒以上選択）'); return; }
+
+  const idx = audioData.length;
+  audioData.push({
+    rawText: '',
+    sentences: [],
+    startTime: start,
+    endTime:   end,
+    duration:  end - start,
+  });
+
+  drawWaveform(); // redraw with green overlay
+  renderSegmentList();
+  toast('Audio ' + (idx+1) + ' を保存しました！');
+  updateStep2NextBtn();
+  saveWip();
+}
+
+function deleteSegment(idx) {
+  audioData.splice(idx, 1);
+  drawWaveform();
+  renderSegmentList();
+  updateStep2NextBtn();
+  saveWip();
+}
+
+function updateStep2NextBtn() {
+  const btn = document.getElementById('step2-next-btn');
+  if (!btn) return;
+  const ready = audioData.length > 0 && audioData.every(ad => ad.sentences && ad.sentences.length > 0);
+  btn.style.opacity = ready ? '1' : '.5';
+  btn.style.pointerEvents = ready ? 'auto' : 'none';
+}
+
+// ── Render saved segments with text input ──
+function renderSegmentList() {
+  const db = getDB();
+  const container = document.getElementById('audio-segments-list');
+  if (!container) return;
+
+  if (!audioData.length) {
+    container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;font-size:13px">波形を選択して「Audio として保存」を押すと、ここに追加されます</div>';
+    updateStep2NextBtn();
+    return;
+  }
+
+  container.innerHTML = audioData.map((ad, i) => `
+    <div class="segment-card" id="seg-card-${i}">
+      <div class="segment-header">
+        <button class="segment-mini-play" onclick="playSegment(${i})">▶</button>
+        <span class="segment-label">Audio ${i+1}</span>
+        <span class="segment-time">${fmtTime(ad.startTime||0)} 〜 ${fmtTime(ad.endTime||0)}</span>
+        <button class="segment-delete" onclick="deleteSegment(${i})" title="削除">✕</button>
+      </div>
+      <div class="segment-body">
+        <div class="syntax-hint" style="margin-bottom:10px;font-size:11px">
+          センテンス分割: <code>"文1" "文2"</code>　フレーズ: <code>[hacen que]</code>　単語: <code>(los juegos)</code>
+        </div>
+        <div class="input-group">
+          <label class="input-label">オーディオテキスト</label>
+          <textarea class="input-field mono" id="raw-${i}" rows="3"
+            placeholder='"Sí, (los juegos) solo [hacen que]." "¿Podrías decirle que regresé?"'
+            oninput="onRawInput(${i})">${escHtml(ad.rawText||'')}</textarea>
+        </div>
+        <div id="sentences-container-${i}"><!-- JS --></div>
+      </div>
+    </div>
+  `).join('');
+
+  // Rebuild sentence inputs for each segment
+  audioData.forEach((ad, i) => {
+    if (ad.rawText) buildSentencesFor(i, ad.rawText, db);
+  });
+
+  updateStep2NextBtn();
+}
+
+// ── Play a saved segment ──
+function playSegment(idx) {
+  if (!wf.buffer) return;
+  stopPreview();
+  const ad = audioData[idx];
+  if (!ad) return;
+  const src = wf.audioCtx.createBufferSource();
+  src.buffer = wf.buffer;
+  src.connect(wf.audioCtx.destination);
+  src.start(0, ad.startTime, ad.endTime - ad.startTime);
+  wf.sourceNode = src;
+  wf.playOffset = ad.startTime;
+  wf.playStartTime = wf.audioCtx.currentTime;
+  animPlayhead(ad.startTime, ad.endTime);
+}
+
+// ── Play with speed (for generated lesson page) ──
+// Speed playback using AudioBuffer playbackRate
+function playSegmentSpeed(idx, rate) {
+  if (!wf.buffer) return;
+  stopPreview();
+  const ad = audioData[idx];
+  if (!ad) return;
+  const src = wf.audioCtx.createBufferSource();
+  src.buffer = wf.buffer;
+  src.playbackRate.value = rate;
+  src.connect(wf.audioCtx.destination);
+  src.start(0, ad.startTime, (ad.endTime - ad.startTime) / rate);
+  wf.sourceNode = src;
+}
+
+// Init waveform events when step2 becomes visible
+const _origShowCreateStep = showCreateStep;
+function showCreateStep(n) {
+  _origShowCreateStep(n);
+  if (n === 2) {
+    setTimeout(() => {
+      wfInitEvents();
+      if (wf.buffer) {
+        drawWaveform();
+        renderSegmentList();
+      }
+    }, 50);
+  }
 }
 
 // ── STEP 2 ───────────────────────────────────────
@@ -1953,19 +2356,18 @@ function buildChecklist() {
     </div>
   `;
 
-  // Audio file list for step 3
-  const audioCount = parseInt(document.getElementById('audio-count').value) || 0;
+  // Audio file list for step 3 - new system: only 1 mp3 needed
   const fileListEl = document.getElementById('audio-file-list-step4');
   if (fileListEl) {
-    const files = [
-      name + ' ×1.mp3',
-      name + ' ×0.75.mp3',
-      name + ' ×0.5.mp3',
-      ...Array.from({length: audioCount}, (_,i) => name + '-A' + (i+1) + '.mp3')
-    ];
-    fileListEl.innerHTML = files.map(f =>
-      `<div class="file-item"><span class="file-name">${escHtml(f)}</span></div>`
-    ).join('');
+    const mainFile = name + '.mp3';
+    fileListEl.innerHTML = `
+      <div class="file-item">
+        <span class="file-name">${escHtml(mainFile)}</span>
+        <span class="badge badge-green" style="font-size:10px">これ1本だけ！</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;padding:0 4px">
+        ※ 通常速度の元音源ファイルをこの名前でアップロードしてください
+      </div>`;
   }
 }
 
@@ -2231,6 +2633,14 @@ function generateLessonHTML(name) {
   const safeName = name.replace(/['"\\`]/g, '');
   const storageKey = 'lesson_' + safeName.replace(/\s+/g,'_');
 
+  // Build segment data: [{start, end}, ...]
+  const segments = audioData.map(ad => ({
+    start: ad.startTime  || 0,
+    end:   ad.endTime    || 0
+  }));
+  const segmentsJSON = JSON.stringify(segments);
+  const mainMp3 = safeName + '.mp3';  // single source file
+
   // Build per-audio HTML sections
   let page2Audios = '';
   let page3Audios = '';
@@ -2239,13 +2649,12 @@ function generateLessonHTML(name) {
 
   audioData.forEach((ad, ai) => {
     const sentences = ad.sentences || [];
-    const audioFile = safeName + '-A' + (ai+1) + '.mp3';
 
     // ── PAGE 2: Dictation ──
     const revealText = sentences.map(s => cleanText(s.text)).join(' / ');
     page2Audios += '<div class="dictation-block">'
       + '<div class="audio-row">'
-      + '<button class="mini-play-btn" onclick="playAudio(\'' + audioFile + '\',this)">▶</button>'
+      + '<button class="mini-play-btn" onclick="playSeg(' + ai + ',1,this)">▶</button>'
       + '<span class="audio-id">Audio ' + (ai+1) + '</span>'
       + '</div>'
       + '<textarea class="dictation-input" placeholder="聞こえた言葉を書いてみましょう..." oninput="saveInput(\'d' + ai + '\',this.value)"></textarea>'
@@ -2256,7 +2665,7 @@ function generateLessonHTML(name) {
     // ── PAGE 3: Meaning ──
     page3Audios += '<div class="audio-section" style="margin-bottom:20px">'
       + '<div class="p3-audio-header">'
-      + '<button class="mini-play-btn" onclick="playAudio(\'' + audioFile + '\',this)">▶</button>'
+      + '<button class="mini-play-btn" onclick="playSeg(' + ai + ',1,this)">▶</button>'
       + '<span class="audio-label" style="margin-bottom:0;font-size:12px;color:var(--muted)">Audio ' + (ai+1) + '</span>'
       + '</div>';
 
@@ -2274,10 +2683,9 @@ function generateLessonHTML(name) {
         + '</div>';
     });
 
-    page3Audios += '</div>'; // close audio-section
+    page3Audios += '</div>';
 
     // ── PAGE 4: Back-translate ──
-    // bt-jp shows: user's input from page3 (ldata[m{ai}_{si}]) if available, else registered jpMeaning
     page4Audios += '<div class="audio-section" style="margin-bottom:20px">'
       + '<div class="p3-audio-header">'
       + '<span class="audio-label" style="margin-bottom:0;font-size:12px;color:var(--muted)">Audio ' + (ai+1) + '</span>'
@@ -2288,26 +2696,25 @@ function generateLessonHTML(name) {
       const fallback = s.jpMeaning || '（意味未登録）';
       page4Audios += '<div class="p3-sentence" style="' + (isLast ? 'border-radius:0 0 12px 12px' : '') + '">'
         + '<div class="sentence-num">センテンス ' + (si+1) + '</div>'
-        // bt-jp: shows user's page3 input via JS at load time; fallback to registered meaning
         + '<div class="bt-jp" id="bt-jp-' + ai + '-' + si + '" data-fallback="' + fallback.replace(/"/g,'&quot;') + '">'
         + fallback
         + '</div>'
         + '<textarea class="bt-input" placeholder="スペイン語で書いてみましょう..." oninput="saveInput(\'bt' + ai + '_' + si + '\',this.value)"></textarea>'
         + '<div class="reveal-group">'
-        + '<button class="reveal-small-btn" onclick="playAudio(\'' + audioFile + '\',this)">▶ 音声を聴く</button>'
+        + '<button class="reveal-small-btn" onclick="playSeg(' + ai + ',1,this)">▶ 音声を聴く</button>'
         + '<button class="reveal-small-btn" onclick="toggleReveal(\'bt-text-' + ai + '-' + si + '\',this)">📄 テキストを見る</button>'
         + '</div>'
         + '<div class="reveal-text" id="bt-text-' + ai + '-' + si + '">' + cleanText(s.text) + '</div>'
         + '</div>';
     });
 
-    page4Audios += '</div>'; // close audio-section
+    page4Audios += '</div>';
 
     // ── PAGE 5: Shadowing ──
     const bid5 = 'shad' + ai;
     page5Audios += '<div class="shadow-audio-block" id="' + bid5 + '">'
       + '<div class="shadow-audio-block-label">Audio ' + (ai+1) + '</div>'
-      + '<div class="shadow-play-row"><button class="mini-play-btn" onclick="playAudio(\'' + audioFile + '\',this)">▶</button></div>';
+      + '<div class="shadow-play-row"><button class="mini-play-btn" onclick="playSeg(' + ai + ',1,this)">▶</button></div>';
     sentences.forEach(s => {
       page5Audios += '<div class="shadow-sentence"><span class="bullet-dot">・</span>' + buildLessonSpans(s, bid5) + '</div>';
     });
@@ -2461,6 +2868,52 @@ function playAudio(file,btn){
   a.onended=function(){btn.classList.remove('playing');};
   a.play().then(function(){btn.classList.add('playing');currentAudio=a;}).catch(function(){btn.classList.remove('playing');});
 }
+// Web Audio engine for segment playback
+var _ac=null,_buf=null,_src=null,_loadPromise=null;
+var SEGMENTS=` + segmentsJSON + `;
+var MP3_FILE='` + mainMp3 + `';
+function _getAC(){return _ac||(_ac=new(window.AudioContext||window.webkitAudioContext)());}
+function _loadBuf(){
+  if(_buf)return Promise.resolve(_buf);
+  if(_loadPromise)return _loadPromise;
+  _loadPromise=fetch(MP3_FILE).then(function(r){return r.arrayBuffer();})
+    .then(function(ab){return _getAC().decodeAudioData(ab);})
+    .then(function(buf){_buf=buf;return buf;});
+  return _loadPromise;
+}
+function _stopSrc(){if(_src){try{_src.stop();}catch(e){}}_src=null;document.querySelectorAll('.playing').forEach(function(b){b.classList.remove('playing');});}
+function playSeg(idx,rate,btn){
+  _stopSrc();
+  var seg=SEGMENTS[idx];
+  if(!seg)return;
+  _loadBuf().then(function(buf){
+    var s=_getAC().createBufferSource();
+    s.buffer=buf;
+    s.playbackRate.value=rate||1;
+    s.connect(_getAC().destination);
+    var dur=(seg.end-seg.start)/s.playbackRate.value;
+    s.start(0,seg.start,dur);
+    _src=s;
+    if(btn)btn.classList.add('playing');
+    s.onended=function(){if(btn)btn.classList.remove('playing');};
+  }).catch(function(){if(btn)btn.classList.remove('playing');});
+}
+function playAll(rate,btn){
+  _stopSrc();
+  if(!SEGMENTS.length)return;
+  _loadBuf().then(function(buf){
+    var start=SEGMENTS[0].start;
+    var end=SEGMENTS[SEGMENTS.length-1].end;
+    var s=_getAC().createBufferSource();
+    s.buffer=buf;
+    s.playbackRate.value=rate||1;
+    s.connect(_getAC().destination);
+    s.start(0,start,(end-start)/(rate||1));
+    _src=s;
+    if(btn)btn.classList.add('playing');
+    s.onended=function(){if(btn)btn.classList.remove('playing');};
+  }).catch(function(){if(btn)btn.classList.remove('playing');});
+}
 var activeSpan=null,activePhrase=null;
 function handleSpanClick(event,span){
   event.stopPropagation();
@@ -2530,9 +2983,9 @@ function completeLesson(){
     + '<div class="section-badge"><span class="num">1</span> 音源を聴く</div>'
     + '<div class="purpose-box">何度も音声を聴いて耳を慣らしましょう。頭の中で自動再生できるくらい繰り返し聴くのが目的です。</div>'
     + '<div class="audio-card"><div class="audio-label">▶ 全体音源</div><div class="speed-btns">'
-    + '<button class="speed-btn" onclick="playAudio(\'' + safeName + ' ×1.mp3\',this)"><span>▶</span> 通常速度</button>'
-    + '<button class="speed-btn" onclick="playAudio(\'' + safeName + ' ×0.75.mp3\',this)"><span>▶</span> 0.75倍速</button>'
-    + '<button class="speed-btn" onclick="playAudio(\'' + safeName + ' ×0.5.mp3\',this)"><span>▶</span> 0.5倍速</button>'
+    + '<button class="speed-btn" onclick="playAll(1,this)"><span>▶</span> 通常速度</button>'
+    + '<button class="speed-btn" onclick="playAll(0.75,this)"><span>▶</span> 0.75倍速</button>'
+    + '<button class="speed-btn" onclick="playAll(0.5,this)"><span>▶</span> 0.5倍速</button>'
     + '</div></div>'
     + '<div class="nav-row"><button class="next-btn" onclick="goTo(2)">次へ ›</button></div>'
     + '</div>\n'
@@ -2566,8 +3019,8 @@ function completeLesson(){
     + '<div class="section-badge"><span class="num">5</span> シャドーイング</div>'
     + '<div class="purpose-box">音声を再生して、同じ速度で口に出して追いかけてみましょう。</div>'
     + '<div class="shadow-whole"><div class="shadow-whole-label">▶ 全体音源</div><div class="speed-btns">'
-    + '<button class="speed-btn" onclick="playAudio(\'' + safeName + ' ×1.mp3\',this)"><span>▶</span> 通常速度</button>'
-    + '<button class="speed-btn" onclick="playAudio(\'' + safeName + ' ×0.75.mp3\',this)"><span>▶</span> ×0.75倍速</button>'
+    + '<button class="speed-btn" onclick="playAll(1,this)"><span>▶</span> 通常速度</button>'
+    + '<button class="speed-btn" onclick="playAll(0.75,this)"><span>▶</span> ×0.75倍速</button>'
     + '</div></div>'
     + '<button class="text-toggle-btn" id="text-toggle-btn" onclick="toggleTextPanel()">'
     + '<span>テキストを見ながら練習する</span><span class="arrow">▼</span></button>'
