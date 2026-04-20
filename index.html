@@ -2254,14 +2254,18 @@ function generateLessonHTML(name) {
       + '</div>';
 
     // ── PAGE 3: Meaning ──
-    page3Audios += '<div class="audio-card" style="margin-bottom:8px">'
-      + '<div class="audio-label">Audio ' + (ai+1) + '</div>'
-      + '<div class="speed-btns"><button class="speed-btn" onclick="playAudio(\'' + audioFile + '\',this)"><span>▶</span> 再生</button></div>'
+    // Audio block wrapping play button + all sentences
+    page3Audios += '<div class="audio-section" style="margin-bottom:20px">'
+      + '<div class="audio-card" style="margin-bottom:12px;border-radius:12px 12px 0 0;margin-bottom:0;border-bottom:none;border-radius:12px">'
+      + '<div style="display:flex;align-items:center;gap:12px">'
+      + '<button class="mini-play-btn" onclick="playAudio(\'' + audioFile + '\',this)">▶</button>'
+      + '<span class="audio-label" style="margin-bottom:0">Audio ' + (ai+1) + '</span>'
+      + '</div>'
       + '</div>';
 
     sentences.forEach((s, si) => {
       const bid = 'sb' + ai + '_' + si;
-      page3Audios += '<div class="sentence-block" id="' + bid + '">'
+      page3Audios += '<div class="sentence-block" id="' + bid + '" style="border-radius:' + (si === sentences.length-1 ? '0 0 12px 12px' : '0') + ';border-top:none;margin-bottom:0">'
         + '<div class="sentence-num">センテンス ' + (si+1) + '</div>'
         + '<div class="sentence-text">' + buildLessonSpans(s, bid) + '</div>'
         + '<div class="tooltip-popup" id="tooltip-' + bid + '"></div>'
@@ -2271,6 +2275,8 @@ function generateLessonHTML(name) {
         + '<div class="reveal-text" id="rev3-' + ai + '-' + si + '">' + (s.jpMeaning || '（意味未登録）') + '</div>'
         + '</div>';
     });
+
+    page3Audios += '</div>'; // close audio-section
 
     // ── PAGE 4: Back-translate ──
     page4Audios += '<div class="audio-card" style="margin-bottom:8px"><div class="audio-label">Audio ' + (ai+1) + '</div></div>';
@@ -2332,6 +2338,10 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 .reveal-text{display:none;margin-top:8px;padding:10px 12px;background:var(--surface2);border-radius:8px;font-size:13px;color:var(--text);border-left:2px solid var(--accent);font-style:italic;}
 .reveal-text.show{display:block;}
 .sentence-block{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:16px;position:relative;}
+.audio-section .audio-card{border-radius:12px 12px 0 0;border-bottom:none;margin-bottom:0;}
+.audio-section .sentence-block{border-radius:0;border-top:none;margin-bottom:0;border-bottom:1px solid var(--border);}
+.audio-section .sentence-block:last-child{border-radius:0 0 12px 12px;border-bottom:1px solid var(--border);margin-bottom:0;}
+.audio-section{margin-bottom:20px;}
 .sentence-num{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:8px;}
 .sentence-text{font-size:17px;line-height:1.9;margin-bottom:12px;color:var(--text);}
 .w{cursor:pointer;color:var(--text);border-radius:3px;padding:1px 3px;transition:background .15s,color .15s;position:relative;display:inline;}
