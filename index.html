@@ -1233,15 +1233,19 @@ function startNewLesson() {
   currentWipId = 'wip_' + Date.now();
   createStep = 1;
   audioData = [];
+  wf.buffer = null;
+  wf.selStart = 0;
+  wf.selEnd = 0;
   document.getElementById('lesson-name').value = '';
-  document.getElementById('audio-count').value = '';
-  document.getElementById('file-card').style.display = 'none';
+  document.getElementById('create-title').textContent = '新しいレッスン';
   document.getElementById('start-btn').style.opacity = '.5';
   document.getElementById('start-btn').style.pointerEvents = 'none';
-  document.getElementById('create-title').textContent = '新しいレッスン';
+  const lbl = document.getElementById('upload-label');
+  if (lbl) { lbl.classList.remove('loaded'); }
+  const uploadText = document.getElementById('upload-text');
+  if (uploadText) uploadText.textContent = 'ここをタップしてmp3を選択';
   showCreateStep(1);
   showScreen('screen-create');
-  // ※ WIPへの保存は「レッスン作成を始める」ボタンを押した時点（goCreateStep2）で行う
 }
 
 function editWip(id) {
@@ -1251,10 +1255,8 @@ function editWip(id) {
   currentWipId = id;
   audioData = wip.audioData || [];
   document.getElementById('lesson-name').value = wip.name || '';
-  document.getElementById('audio-count').value = wip.audioCount || '';
   document.getElementById('create-title').textContent = wip.name || '編集中';
   onLessonNameInput();
-  onAudioCountInput();
   showCreateStep(wip.step || 1);
   showScreen('screen-create');
 }
@@ -1295,6 +1297,18 @@ function showCreateStep(n) {
     dot.classList.toggle('active', i===n);
     dot.classList.toggle('done',   i<n);
   });
+  // ステップ2に移動したら波形UIを初期化
+  if (n === 2) {
+    setTimeout(() => {
+      wfInitEvents();
+      if (wf.buffer) {
+        drawWaveform();
+        renderSegmentList();
+      } else {
+        renderSegmentList(); // show empty state
+      }
+    }, 50);
+  }
 }
 
 function confirmBackToTop() {
@@ -1635,21 +1649,6 @@ function playSegmentSpeed(idx, rate) {
   src.connect(wf.audioCtx.destination);
   src.start(0, ad.startTime, (ad.endTime - ad.startTime) / rate);
   wf.sourceNode = src;
-}
-
-// Init waveform events when step2 becomes visible
-const _origShowCreateStep = showCreateStep;
-function showCreateStep(n) {
-  _origShowCreateStep(n);
-  if (n === 2) {
-    setTimeout(() => {
-      wfInitEvents();
-      if (wf.buffer) {
-        drawWaveform();
-        renderSegmentList();
-      }
-    }, 50);
-  }
 }
 
 // ── STEP 2 ───────────────────────────────────────
