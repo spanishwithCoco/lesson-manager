@@ -1032,7 +1032,7 @@ textarea.input-field { resize: vertical; min-height: 70px; }
 <script>
 // ── SUPABASE CONFIG ──────────────────────────────
 const SB_URL = 'https://vnzkjkyvagqnfrqsoijw.supabase.co';
-const SB_KEY = 'sb_publishable_pCakxmFfDkTMJFjkcOdobw_5Tnt5Vmg';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZuemtqa3l2YWdxbmZycXNvaWp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1MTM3ODMsImV4cCI6MjA5MjA4OTc4M30.b89qi-Vy17TbFjzxpQ_0X8jFtOzq0gayWktWCZMqqa0';
 
 const sbHeaders = {
   'Content-Type': 'application/json',
@@ -1041,28 +1041,41 @@ const sbHeaders = {
   'Prefer': 'return=minimal'
 };
 
-// Supabase REST helpers
+// Supabase REST helpers with timeout
+async function sbFetchWithTimeout(url, options, ms = 8000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    const r = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timer);
+    return r;
+  } catch(e) {
+    clearTimeout(timer);
+    throw e;
+  }
+}
+
 async function sbSelect(table, params = '') {
-  const r = await fetch(`${SB_URL}/rest/v1/${table}?${params}`, {
+  const r = await sbFetchWithTimeout(`${SB_URL}/rest/v1/${table}?${params}`, {
     headers: { ...sbHeaders, 'Prefer': '' }
   });
-  if (!r.ok) throw new Error(await r.text());
+  if (!r.ok) throw new Error('HTTP ' + r.status + ': ' + await r.text());
   return r.json();
 }
 async function sbUpsert(table, data) {
-  const r = await fetch(`${SB_URL}/rest/v1/${table}`, {
+  const r = await sbFetchWithTimeout(`${SB_URL}/rest/v1/${table}`, {
     method: 'POST',
     headers: { ...sbHeaders, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
     body: JSON.stringify(data)
   });
-  if (!r.ok) throw new Error(await r.text());
+  if (!r.ok) throw new Error('HTTP ' + r.status + ': ' + await r.text());
 }
 async function sbDelete(table, match) {
   const params = Object.entries(match).map(([k,v])=>`${k}=eq.${encodeURIComponent(v)}`).join('&');
-  const r = await fetch(`${SB_URL}/rest/v1/${table}?${params}`, {
+  const r = await sbFetchWithTimeout(`${SB_URL}/rest/v1/${table}?${params}`, {
     method: 'DELETE', headers: sbHeaders
   });
-  if (!r.ok) throw new Error(await r.text());
+  if (!r.ok) throw new Error('HTTP ' + r.status);
 }
 
 // ── LOCAL CACHE (fallback / WIP storage) ─────────
@@ -3161,13 +3174,19 @@ function nowStr() {
 }
 
 // ── INIT ────────────────────────────────────────
-(async () => {
-  // まずローカルキャッシュで即時表示
-  renderTop(false);
-  // Supabaseから最新データを取得して再描画
-  const synced = await syncFromSupabase();
-  renderTop(false);
-})();
+// まずローカルキャッシュで即時表示（Supabaseの結果を待たない）
+renderTop(false);
+
+// Supabase同期はバックグラウンドで非同期に実行
+setTimeout(async () => {
+  try {
+    await syncFromSupabase();
+    renderTop(false);
+  } catch(e) {
+    console.warn('Init sync failed:', e);
+    // 失敗してもページは正常に動作する
+  }
+}, 100);
 </script>
 </body>
 </html>
