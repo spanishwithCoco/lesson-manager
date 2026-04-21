@@ -2291,7 +2291,7 @@ function generateLessonHTML(name) {
         + '<div class="bt-jp" id="bt-jp-' + ai + '-' + si + '" data-fallback="' + fallback.replace(/"/g,'&quot;') + '">'
         + fallback
         + '</div>'
-        + '<textarea class="bt-input" placeholder="口に出しながら、スペイン語を思い出して書いてみよう。" oninput="saveInput(\'bt' + ai + '_' + si + '\',this.value)"></textarea>'
+        + '<textarea class="bt-input" placeholder="スペイン語を思い出して、口に出しながら書いてみよう。" oninput="saveInput(\'bt' + ai + '_' + si + '\',this.value)"></textarea>'
         + '<div class="reveal-group">'
         + '<button class="reveal-small-btn" onclick="playAudio(\'' + audioFile + '\',this)">▶ 音声を聴く</button>'
         + '<button class="reveal-small-btn" onclick="toggleReveal(\'bt-text-' + ai + '-' + si + '\',this)">📄 テキストを見る</button>'
@@ -2411,7 +2411,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 .nav-row{display:flex;justify-content:flex-end;margin-top:32px;padding-top:20px;border-top:1px solid var(--border);}
 .next-btn{padding:12px 28px;background:var(--accent);border:none;border-radius:10px;color:#000;font-family:'Noto Sans JP',sans-serif;font-weight:700;font-size:14px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:8px;}
 .next-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(244,168,67,.3);}
-.complete-btn{padding:14px 32px;background:var(--green);border:none;border-radius:10px;color:#000;font-family:'Noto Sans JP',sans-serif;font-weight:700;font-size:15px;cursor:pointer;transition:all .2s;width:100%;margin-top:24px;}
+.complete-btn{padding:14px 32px;background:var(--green);border:none;border-radius:10px;color:#fff;font-family:'Noto Sans JP',sans-serif;font-weight:700;font-size:15px;cursor:pointer;transition:all .2s;width:100%;margin-top:24px;}
 .complete-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(78,203,113,.3);}
 .purpose-box{background:var(--surface2);border-left:3px solid var(--accent2);border-radius:0 8px 8px 0;padding:12px 14px;font-size:12px;color:var(--muted);margin-bottom:20px;line-height:1.8;}
 .complete-screen{text-align:center;padding:60px 20px;}
