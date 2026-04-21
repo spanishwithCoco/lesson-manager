@@ -2332,7 +2332,8 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 .step-btn{flex:1;padding:6px 4px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'Noto Sans JP',sans-serif;font-size:10px;cursor:pointer;transition:all .2s;text-align:center;white-space:nowrap;}
 .step-btn.active{background:var(--accent);color:#000;border-color:var(--accent);font-weight:700;}
 .step-btn.done{background:var(--surface2);color:var(--green);border-color:var(--green);}
-.container{max-width:680px;margin:0 auto;padding:24px 16px 80px;}
+.container{max-width:680px;margin:0 auto;padding:20px 16px 80px;}
+.page-body{display:block;}
 .lesson-title{font-family:'Playfair Display',serif;font-size:20px;color:var(--accent);margin-bottom:4px;}
 .lesson-sub{font-size:12px;color:var(--muted);margin-bottom:28px;}
 .page{display:none;}.page.active{display:block;animation:fadeIn .3s ease;}
@@ -2476,14 +2477,31 @@ function goTo(n){
   currentPage=n;
   updateSteps(n);
   updateStickyHeader(n);
+  // re-adjust container top padding after header may have resized
+  var sh=document.getElementById('sticky-header');
+  var cont=document.querySelector('.container');
+  if(sh&&cont){
+    requestAnimationFrame(function(){cont.style.paddingTop=(sh.offsetHeight+16)+'px';});
+  }
   window.scrollTo({top:0,behavior:'smooth'});
 }
 window.addEventListener('DOMContentLoaded',function(){
-  // Set sticky-header top to match progress-nav height exactly (no gap)
   var nav=document.querySelector('.progress-nav');
   var sh=document.getElementById('sticky-header');
-  if(nav&&sh){sh.style.top=nav.offsetHeight+'px';}
+  var cont=document.querySelector('.container');
+  function adjustLayout(){
+    var navH=nav?nav.offsetHeight:0;
+    var shH=sh?sh.offsetHeight:0;
+    if(sh)sh.style.top=navH+'px';
+    if(cont)cont.style.paddingTop=(shH+16)+'px';
+  }
+  adjustLayout();
+  // Re-adjust when sticky header content changes (player shown/hidden)
+  if(window.ResizeObserver&&sh){
+    new ResizeObserver(adjustLayout).observe(sh);
+  }
   updateStickyHeader(1);
+  adjustLayout();
 });
 function updateSteps(n){
   for(var i=1;i<=totalPages;i++){
