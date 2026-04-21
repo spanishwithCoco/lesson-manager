@@ -2569,6 +2569,88 @@ function mainPlayerSetSpeed(spd,btn){
     };
   }
 }
+// ── Shadow Player (Page 5) ──
+var shadAudio=null;
+var shadSpeed=1;
+var shadRaf=null;
+var shadFile1='` + safeName + ` ×1.mp3';
+var shadFile075='` + safeName + ` ×0.75.mp3';
+function shadPlayerFile(){return shadSpeed===0.75?shadFile075:shadFile1;}
+function shadPlayerUpdateBar(){
+  if(!shadAudio)return;
+  var pct=shadAudio.duration?shadAudio.currentTime/shadAudio.duration*100:0;
+  var fill=document.getElementById('shad-fill');
+  var thumb=document.getElementById('shad-thumb');
+  var timeEl=document.getElementById('shad-time');
+  if(fill)fill.style.width=pct+'%';
+  if(thumb)thumb.style.left=pct+'%';
+  if(timeEl)timeEl.textContent=fmtTime(shadAudio.currentTime)+' / '+fmtTime(shadAudio.duration||0);
+  shadRaf=requestAnimationFrame(shadPlayerUpdateBar);
+}
+function shadPlayerLoad(){
+  if(shadAudio){shadAudio.pause();cancelAnimationFrame(shadRaf);}
+  shadAudio=new Audio(shadPlayerFile());
+  shadAudio.onended=function(){
+    var btn=document.getElementById('shad-pp-btn');
+    if(btn)btn.textContent='▶';
+    cancelAnimationFrame(shadRaf);shadPlayerUpdateBar();
+  };
+  return shadAudio;
+}
+function shadPlayerToggle(){
+  var btn=document.getElementById('shad-pp-btn');
+  if(!shadAudio||shadAudio.ended||shadAudio.paused&&shadAudio.currentTime===0){
+    if(!shadAudio||shadAudio.ended)shadPlayerLoad();
+    shadAudio.play().then(function(){
+      if(btn)btn.textContent='⏸';
+      cancelAnimationFrame(shadRaf);shadPlayerUpdateBar();
+    }).catch(function(){});
+  } else if(shadAudio.paused){
+    shadAudio.play().then(function(){
+      if(btn)btn.textContent='⏸';
+      cancelAnimationFrame(shadRaf);shadPlayerUpdateBar();
+    }).catch(function(){});
+  } else {
+    shadAudio.pause();
+    if(btn)btn.textContent='▶';
+    cancelAnimationFrame(shadRaf);
+  }
+}
+function shadPlayerSeek(e){
+  var wrap=document.getElementById('shad-progress-wrap');
+  if(!wrap)return;
+  var rect=wrap.getBoundingClientRect();
+  var pct=(e.clientX-rect.left)/rect.width;
+  pct=Math.max(0,Math.min(1,pct));
+  if(!shadAudio){
+    shadPlayerLoad();
+    shadAudio.onloadedmetadata=function(){shadAudio.currentTime=shadAudio.duration*pct;shadPlayerUpdateBar();};
+    return;
+  }
+  if(shadAudio.duration)shadAudio.currentTime=shadAudio.duration*pct;
+  shadPlayerUpdateBar();
+}
+function shadPlayerSetSpeed(spd,btn){
+  shadSpeed=spd;
+  document.querySelectorAll('#shad-player .spd-btn').forEach(function(b){b.classList.remove('active');});
+  if(btn)btn.classList.add('active');
+  var wasPlaying=shadAudio&&!shadAudio.paused;
+  var pos=shadAudio?shadAudio.currentTime:0;
+  var dur=shadAudio&&shadAudio.duration?shadAudio.duration:0;
+  shadPlayerLoad();
+  if(dur>0){
+    shadAudio.onloadedmetadata=function(){
+      shadAudio.currentTime=pos;
+      if(wasPlaying){
+        shadAudio.play().then(function(){
+          var ppBtn=document.getElementById('shad-pp-btn');
+          if(ppBtn)ppBtn.textContent='⏸';
+          cancelAnimationFrame(shadRaf);shadPlayerUpdateBar();
+        }).catch(function(){});
+      } else {shadPlayerUpdateBar();}
+    };
+  }
+}
 // ── Legacy playAudio (pages 2-5) ──
 var currentAudio=null;
 function playAudio(file,btn){
@@ -2694,10 +2776,23 @@ function completeLesson(){
     + '<div class="page" id="page5">'
     + '<div class="section-badge"><span class="num">5</span> シャドーイング</div>'
     + '<div class="purpose-box">音声を再生して、同じ速度で口に出して追いかけてみましょう。</div>'
-    + '<div class="shadow-whole"><div class="shadow-whole-label">▶ 全体音源</div><div class="speed-btns">'
-    + '<button class="speed-btn" onclick="playAudio(\'' + safeName + ' ×1.mp3\',this)"><span>▶</span> 通常速度</button>'
-    + '<button class="speed-btn" onclick="playAudio(\'' + safeName + ' ×0.75.mp3\',this)"><span>▶</span> ×0.75倍速</button>'
-    + '</div></div>'
+    + '<div class="shadow-whole">'
+    + '<div class="shadow-whole-label">全体音源</div>'
+    + '<div class="custom-player" id="shad-player">'
+    + '<div class="player-main-row">'
+    + '<button class="play-pause-btn" id="shad-pp-btn" onclick="shadPlayerToggle()">▶</button>'
+    + '<div class="progress-wrap" id="shad-progress-wrap" onclick="shadPlayerSeek(event)">'
+    + '<div class="progress-track"><div class="progress-fill" id="shad-fill"></div><div class="progress-thumb" id="shad-thumb"></div></div>'
+    + '</div>'
+    + '<span class="time-display" id="shad-time">0:00 / 0:00</span>'
+    + '</div>'
+    + '<div class="speed-row">'
+    + '<span class="speed-label">速度：</span>'
+    + '<button class="spd-btn active" id="shad-spd-1" onclick="shadPlayerSetSpeed(1,this)">×1</button>'
+    + '<button class="spd-btn" id="shad-spd-075" onclick="shadPlayerSetSpeed(0.75,this)">×0.75</button>'
+    + '</div>'
+    + '</div>'
+    + '</div>'
     + '<button class="text-toggle-btn" id="text-toggle-btn" onclick="toggleTextPanel()">'
     + '<span>テキストを見ながら練習する</span><span class="arrow">▼</span></button>'
     + '<div class="text-panel" id="text-panel">' + page5Audios + '</div>'
