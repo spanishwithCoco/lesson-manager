@@ -2267,8 +2267,7 @@ function generateLessonHTML(name) {
         + '<div class="sentence-num">センテンス ' + (si+1) + '</div>'
         + '<div class="sentence-text">' + buildLessonSpans(s, bid) + '</div>'
         + '<div class="tooltip-popup" id="tooltip-' + bid + '"></div>'
-        + '<div class="input-label" style="margin-top:10px">自分なりの日本語で書いてみよう。</div>'
-        + '<textarea class="meaning-input" placeholder="例：…" oninput="saveInput(\'m' + ai + '_' + si + '\',this.value)"></textarea>'
+        + '<textarea class="meaning-input" placeholder="自分なりの日本語で書いてみよう。" oninput="saveInput(\'m' + ai + '_' + si + '\',this.value)"></textarea>'
         + '<button class="reveal-btn" onclick="toggleReveal(\'rev3-' + ai + '-' + si + '\',this)" style="margin-top:8px">＋ 意味を確認する</button>'
         + '<div class="reveal-text" id="rev3-' + ai + '-' + si + '">' + (s.jpMeaning || '（意味未登録）') + '</div>'
         + '</div>';
