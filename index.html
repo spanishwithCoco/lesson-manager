@@ -2248,7 +2248,7 @@ function generateLessonHTML(name) {
       + '<button class="mini-play-btn" onclick="playAudio(\'' + audioFile + '\',this)">▶</button>'
       + '<span class="audio-id">Audio ' + (ai+1) + '</span>'
       + '</div>'
-      + '<textarea class="dictation-input" placeholder="聞こえた言葉を書いてみましょう..." oninput="saveInput(\'d' + ai + '\',this.value)"></textarea>'
+      + '<textarea class="dictation-input" placeholder="聞こえたまま書いてみよう。" oninput="saveInput(\'d' + ai + '\',this.value)"></textarea>'
       + '<button class="reveal-btn" onclick="toggleReveal(\'rev2-' + ai + '\',this)">＋ テキストを確認する</button>'
       + '<div class="reveal-text" id="rev2-' + ai + '">' + revealText + '</div>'
       + '</div>';
@@ -2267,7 +2267,7 @@ function generateLessonHTML(name) {
         + '<div class="sentence-num">センテンス ' + (si+1) + '</div>'
         + '<div class="sentence-text">' + buildLessonSpans(s, bid) + '</div>'
         + '<div class="tooltip-popup" id="tooltip-' + bid + '"></div>'
-        + '<div class="input-label" style="margin-top:10px">この文の意味を自分の言葉で書いてみましょう</div>'
+        + '<div class="input-label" style="margin-top:10px">自分なりの日本語で書いてみよう。</div>'
         + '<textarea class="meaning-input" placeholder="例：…" oninput="saveInput(\'m' + ai + '_' + si + '\',this.value)"></textarea>'
         + '<button class="reveal-btn" onclick="toggleReveal(\'rev3-' + ai + '-' + si + '\',this)" style="margin-top:8px">＋ 意味を確認する</button>'
         + '<div class="reveal-text" id="rev3-' + ai + '-' + si + '">' + (s.jpMeaning || '（意味未登録）') + '</div>'
@@ -2292,7 +2292,7 @@ function generateLessonHTML(name) {
         + '<div class="bt-jp" id="bt-jp-' + ai + '-' + si + '" data-fallback="' + fallback.replace(/"/g,'&quot;') + '">'
         + fallback
         + '</div>'
-        + '<textarea class="bt-input" placeholder="スペイン語で書いてみましょう..." oninput="saveInput(\'bt' + ai + '_' + si + '\',this.value)"></textarea>'
+        + '<textarea class="bt-input" placeholder="口に出しながら、スペイン語を思い出して書いてみよう。" oninput="saveInput(\'bt' + ai + '_' + si + '\',this.value)"></textarea>'
         + '<div class="reveal-group">'
         + '<button class="reveal-small-btn" onclick="playAudio(\'' + audioFile + '\',this)">▶ 音声を聴く</button>'
         + '<button class="reveal-small-btn" onclick="toggleReveal(\'bt-text-' + ai + '-' + si + '\',this)">📄 テキストを見る</button>'
