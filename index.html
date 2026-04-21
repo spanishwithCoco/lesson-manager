@@ -2713,11 +2713,11 @@ function completeLesson(){
     + '<style>\n' + css + '\n</style>\n'
     + '</head>\n<body>\n'
     + '<nav class="progress-nav"><div class="progress-steps">'
-    + '<button class="step-btn active" onclick="goTo(1)" id="step1-btn">① 音源</button>'
-    + '<button class="step-btn" onclick="goTo(2)" id="step2-btn">② 書取</button>'
-    + '<button class="step-btn" onclick="goTo(3)" id="step3-btn">③ 意味</button>'
-    + '<button class="step-btn" onclick="goTo(4)" id="step4-btn">④ 訳す</button>'
-    + '<button class="step-btn" onclick="goTo(5)" id="step5-btn">⑤ 追う</button>'
+    + '<button class="step-btn active" onclick="goTo(1)" id="step1-btn">① Escuchar</button>'
+    + '<button class="step-btn" onclick="goTo(2)" id="step2-btn">② Dictado</button>'
+    + '<button class="step-btn" onclick="goTo(3)" id="step3-btn">③ Entender</button>'
+    + '<button class="step-btn" onclick="goTo(4)" id="step4-btn">④ Reconstruir</button>'
+    + '<button class="step-btn" onclick="goTo(5)" id="step5-btn">⑤ Imitar</button>'
     + '</div></nav>\n'
     + '<div class="container">\n'
     + '<div class="lesson-title">' + name + '</div>\n'
@@ -2725,8 +2725,8 @@ function completeLesson(){
 
     // Page 1
     + '<div class="page active" id="page1">'
-    + '<div class="section-badge"><span class="num">1</span> 音源を聴く</div>'
-    + '<div class="purpose-box">何度も音声を聴いて耳を慣らしましょう。頭の中で自動再生できるくらい繰り返し聴くのが目的です。</div>'
+    + '<div class="section-badge"><span class="num">1</span> Escuchar｜リスニング</div>'
+    + '<div class="purpose-box">音声を何度も聞いて、スペイン語の音に慣れよう。<br>意味が分からなくてもOK。音の流れをつかむのが目標。</div>'
     + '<div class="audio-card">'
     + '<div class="audio-label">全体音源</div>'
     + '<div class="custom-player" id="main-player">'
@@ -2750,32 +2750,32 @@ function completeLesson(){
 
     // Page 2
     + '<div class="page" id="page2">'
-    + '<div class="section-badge"><span class="num">2</span> ディクテーション</div>'
-    + '<div class="purpose-box">聞こえた音を書き起こしましょう。どうしても聞き取れない時は「＋」を押して確認できます。</div>'
+    + '<div class="section-badge"><span class="num">2</span> Dictado｜ディクテーション</div>'
+    + '<div class="purpose-box">音声を聞きながら、聞こえたスペイン語を書き取ろう。<br>完璧じゃなくてOK。聞こえたまま書いてみよう。</div>'
     + page2Audios
     + '<div class="nav-row"><button class="next-btn" onclick="goTo(3)">次へ ›</button></div>'
     + '</div>\n'
 
     // Page 3
     + '<div class="page" id="page3">'
-    + '<div class="section-badge"><span class="num">3</span> 意味を理解する</div>'
-    + '<div class="purpose-box">スペイン語のテキストを見て意味を想像してみましょう。<br>わからない単語やフレーズはタップすると意味が表示されます。</div>'
+    + '<div class="section-badge"><span class="num">3</span> Entender｜理解</div>'
+    + '<div class="purpose-box">テキストを見ながら、何を言っているのか考えよう。<br>自分なりの日本語で意味をつかめればOK。</div>'
     + page3Audios
     + '<div class="nav-row"><button class="next-btn" onclick="goTo(4)">次へ ›</button></div>'
     + '</div>\n'
 
     // Page 4
     + '<div class="page" id="page4">'
-    + '<div class="section-badge"><span class="num">4</span> 日本語 → スペイン語</div>'
-    + '<div class="purpose-box">自分の言葉（日本語）をスペイン語で書いてみましょう。</div>'
+    + '<div class="section-badge"><span class="num">4</span> Reconstruir｜再現</div>'
+    + '<div class="purpose-box">日本語をヒントに、スペイン語を思い出して書いてみよう。<br>音やフレーズを思い出しながら再現するのがポイント。</div>'
     + page4Audios
     + '<div class="nav-row"><button class="next-btn" onclick="goTo(5)">次へ ›</button></div>'
     + '</div>\n'
 
     // Page 5
     + '<div class="page" id="page5">'
-    + '<div class="section-badge"><span class="num">5</span> シャドーイング</div>'
-    + '<div class="purpose-box">音声を再生して、同じ速度で口に出して追いかけてみましょう。</div>'
+    + '<div class="section-badge"><span class="num">5</span> Imitar｜シャドウィング</div>'
+    + '<div class="purpose-box">音声を聞きながら、まねして声に出してみよう。<br>無理なく言えることを目標に、リズムを意識して繰り返そう。</div>'
     + '<div class="shadow-whole-sticky-wrap"><div class="shadow-whole">'
     + '<div class="shadow-whole-label">全体音源</div>'
     + '<div class="custom-player" id="shad-player">'
