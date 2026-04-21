@@ -2316,14 +2316,17 @@ function generateLessonHTML(name) {
 
   // ── CSS (same as lesson-demo) ──
   const css = `@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Playfair+Display:wght@600&family=Space+Mono&display=swap');
-:root{--bg:#0f0f13;--surface:#1a1a22;--surface2:#22222e;--border:#2e2e3e;--text:#e8e8f0;--muted:#7a7a92;--accent:#f4a843;--accent2:#6c9eff;--phrase:#f4a843;--word:#f4e843;--green:#4ecb71;}
+:root{--bg:#0f0f13;--surface:#1a1a22;--surface2:#22222e;--border:#2e2e3e;--text:#e8e8f0;--muted:#7a7a92;--accent:#f4a843;--accent2:#6c9eff;--phrase:#f4a843;--word:#f4e843;--green:#4ecb71;--nav-bg:rgba(15,15,19,.92);}
+body.light{--bg:#f8f8f6;--surface:#ffffff;--surface2:#f0efeb;--border:#dddbd4;--text:#1a1814;--muted:#8a8780;--accent:#d4880a;--accent2:#2a5fa8;--phrase:#d4880a;--word:#8a7a00;--green:#2a7a45;--nav-bg:rgba(248,248,246,.92);}
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:15px;line-height:1.7;}
-.progress-nav{position:sticky;top:0;z-index:100;background:rgba(15,15,19,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:10px 16px;}
-.progress-steps{display:flex;gap:6px;max-width:680px;margin:0 auto;justify-content:center;}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:15px;line-height:1.7;transition:background .25s,color .25s;}
+.progress-nav{position:sticky;top:0;z-index:100;background:var(--nav-bg);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:10px 16px;}
+.progress-steps{display:flex;gap:6px;max-width:680px;margin:0 auto;justify-content:center;align-items:center;}
 .step-btn{flex:1;padding:6px 4px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'Noto Sans JP',sans-serif;font-size:10px;cursor:pointer;transition:all .2s;text-align:center;white-space:nowrap;}
 .step-btn.active{background:var(--accent);color:#000;border-color:var(--accent);font-weight:700;}
 .step-btn.done{background:var(--surface2);color:var(--green);border-color:var(--green);}
+.theme-toggle-btn{flex-shrink:0;width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;margin-left:4px;}
+.theme-toggle-btn:hover{border-color:var(--accent);}
 .container{max-width:680px;margin:0 auto;padding:24px 16px 80px;}
 .lesson-title{font-family:'Playfair Display',serif;font-size:20px;color:var(--accent);margin-bottom:4px;}
 .lesson-sub{font-size:12px;color:var(--muted);margin-bottom:28px;}
@@ -2468,8 +2471,24 @@ function toggleTextPanel(){
   var panel=document.getElementById('text-panel');
   var isOpen=panel.classList.toggle('show');
   btn.classList.toggle('open',isOpen);
-  btn.querySelector('span').textContent=isOpen?'\\u30c6\\u30ad\\u30b9\\u30c8\\u3092\\u3057\\u307e\\u3046':'\\u30c6\\u30ad\\u30b9\\u30c8\\u3092\\u898b\\u306a\\u304c\\u3089\\u7df4\\u7fd2\\u3059\\u308b';
+  btn.querySelector('span').textContent=isOpen?'\u30c6\u30ad\u30b9\u30c8\u3092\u3057\u307e\u3046':'\u30c6\u30ad\u30b9\u30c8\u3092\u898b\u306a\u304c\u3089\u7df4\u7fd2\u3059\u308b';
 }
+function toggleTheme(){
+  var isLight=document.body.classList.toggle('light');
+  var btn=document.getElementById('theme-toggle-btn');
+  if(btn)btn.textContent=isLight?'\u2600\ufe0e':'\ud83c\udf19';
+  try{localStorage.setItem('lesson_theme',isLight?'light':'dark');}catch(e){}
+}
+window.addEventListener('DOMContentLoaded',function(){
+  try{
+    var saved=localStorage.getItem('lesson_theme');
+    if(saved==='light'){
+      document.body.classList.add('light');
+      var btn=document.getElementById('theme-toggle-btn');
+      if(btn)btn.textContent='\u2600\ufe0e';
+    }
+  }catch(e){}
+});
 // ── Main Player (Page 1) ──
 var mainAudio = null;
 var mainSpeed = 1;
@@ -2718,6 +2737,7 @@ function completeLesson(){
     + '<button class="step-btn" onclick="goTo(3)" id="step3-btn">③ Entender</button>'
     + '<button class="step-btn" onclick="goTo(4)" id="step4-btn">④ Reconstruir</button>'
     + '<button class="step-btn" onclick="goTo(5)" id="step5-btn">⑤ Imitar</button>'
+    + '<button class="theme-toggle-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="ダーク/ライト切替">🌙</button>'
     + '</div></nav>\n'
     + '<div class="container">\n'
     + '<div class="lesson-title">' + name + '</div>\n'
