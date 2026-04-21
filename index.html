@@ -2320,6 +2320,14 @@ function generateLessonHTML(name) {
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:15px;line-height:1.7;}
 .progress-nav{position:sticky;top:0;z-index:100;background:rgba(15,15,19,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:10px 16px;}
+.sticky-header{position:sticky;top:53px;z-index:90;background:var(--bg);padding:16px 16px 12px;margin:-24px -16px 0;border-bottom:1px solid var(--border);box-shadow:0 4px 16px rgba(0,0,0,.18);}
+.sticky-header .lesson-title{font-family:'Playfair Display',serif;font-size:18px;color:var(--accent);margin-bottom:2px;}
+.sticky-header .lesson-sub{font-size:11px;color:var(--muted);margin-bottom:10px;}
+.sticky-header .section-badge{margin-bottom:10px;}
+.sticky-header .purpose-box{margin-bottom:0;}
+.sticky-header .audio-card{margin-bottom:0;margin-top:10px;}
+.sticky-header .shadow-whole{margin-bottom:0;margin-top:10px;}
+.page-body{padding-top:24px;}
 .progress-steps{display:flex;gap:6px;max-width:680px;margin:0 auto;justify-content:center;}
 .step-btn{flex:1;padding:6px 4px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'Noto Sans JP',sans-serif;font-size:10px;cursor:pointer;transition:all .2s;text-align:center;white-space:nowrap;}
 .step-btn.active{background:var(--accent);color:#000;border-color:var(--accent);font-weight:700;}
@@ -2440,14 +2448,37 @@ window.addEventListener('DOMContentLoaded',function(){
 });
 var currentPage=1;
 var totalPages=5;
+var PAGE_META=[
+  {badge:'<span class="num">1</span> 音源を聴く',purpose:'何度も音声を聴いて耳を慣らしましょう。頭の中で自動再生できるくらい繰り返し聴くのが目的です。',extra:'main'},
+  {badge:'<span class="num">2</span> ディクテーション',purpose:'聞こえた音を書き起こしましょう。どうしても聞き取れない時は「＋」を押して確認できます。',extra:null},
+  {badge:'<span class="num">3</span> 意味を理解する',purpose:'スペイン語のテキストを見て意味を想像してみましょう。わからない単語やフレーズはタップすると意味が表示されます。',extra:null},
+  {badge:'<span class="num">4</span> 日本語 → スペイン語',purpose:'自分の言葉（日本語）をスペイン語で書いてみましょう。',extra:null},
+  {badge:'<span class="num">5</span> シャドーイング',purpose:'音声を再生して、同じ速度で口に出して追いかけてみましょう。',extra:'shad'}
+];
+function updateStickyHeader(n){
+  var area=document.getElementById('sticky-badge-area');
+  if(!area)return;
+  var meta=PAGE_META[n-1];
+  if(!meta)return;
+  var badge='<div class="section-badge">'+meta.badge+'</div>';
+  var pb='<div class="purpose-box">'+meta.purpose+'</div>';
+  // show/hide player slots
+  var mainSlot=document.getElementById('sticky-main-slot');
+  var shadSlot=document.getElementById('sticky-shad-slot');
+  if(mainSlot)mainSlot.style.display=(meta.extra==='main')?'block':'none';
+  if(shadSlot)shadSlot.style.display=(meta.extra==='shad')?'block':'none';
+  area.innerHTML=badge+pb;
+}
 function goTo(n){
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
   var pg=document.getElementById('page'+n);
   if(pg)pg.classList.add('active');
   currentPage=n;
   updateSteps(n);
+  updateStickyHeader(n);
   window.scrollTo({top:0,behavior:'smooth'});
 }
+window.addEventListener('DOMContentLoaded',function(){updateStickyHeader(1);});
 function updateSteps(n){
   for(var i=1;i<=totalPages;i++){
     var b=document.getElementById('step'+i+'-btn');
@@ -2719,15 +2750,15 @@ function completeLesson(){
     + '<button class="step-btn" onclick="goTo(4)" id="step4-btn">④ 訳す</button>'
     + '<button class="step-btn" onclick="goTo(5)" id="step5-btn">⑤ 追う</button>'
     + '</div></nav>\n'
-    + '<div class="container">\n'
-    + '<div class="lesson-title">' + name + '</div>\n'
-    + '<div class="lesson-sub">スペイン語レッスン</div>\n'
 
-    // Page 1
-    + '<div class="page active" id="page1">'
-    + '<div class="section-badge"><span class="num">1</span> 音源を聴く</div>'
-    + '<div class="purpose-box">何度も音声を聴いて耳を慣らしましょう。頭の中で自動再生できるくらい繰り返し聴くのが目的です。</div>'
-    + '<div class="audio-card">'
+    // ── Sticky header (updated by JS on page change) ──
+    + '<div class="sticky-header" id="sticky-header">'
+    + '<div class="lesson-title">' + name + '</div>'
+    + '<div class="lesson-sub">スペイン語レッスン</div>'
+    + '<div id="sticky-badge-area"></div>'
+    // Main player slot (page 1) - always in DOM, shown/hidden
+    + '<div id="sticky-main-slot" style="display:block">'
+    + '<div class="audio-card" style="margin-top:10px;margin-bottom:0">'
     + '<div class="audio-label">全体音源</div>'
     + '<div class="custom-player" id="main-player">'
     + '<div class="player-main-row">'
@@ -2745,38 +2776,10 @@ function completeLesson(){
     + '</div>'
     + '</div>'
     + '</div>'
-    + '<div class="nav-row"><button class="next-btn" onclick="goTo(2)">次へ ›</button></div>'
-    + '</div>\n'
-
-    // Page 2
-    + '<div class="page" id="page2">'
-    + '<div class="section-badge"><span class="num">2</span> ディクテーション</div>'
-    + '<div class="purpose-box">聞こえた音を書き起こしましょう。どうしても聞き取れない時は「＋」を押して確認できます。</div>'
-    + page2Audios
-    + '<div class="nav-row"><button class="next-btn" onclick="goTo(3)">次へ ›</button></div>'
-    + '</div>\n'
-
-    // Page 3
-    + '<div class="page" id="page3">'
-    + '<div class="section-badge"><span class="num">3</span> 意味を理解する</div>'
-    + '<div class="purpose-box">スペイン語のテキストを見て意味を想像してみましょう。<br>わからない単語やフレーズはタップすると意味が表示されます。</div>'
-    + page3Audios
-    + '<div class="nav-row"><button class="next-btn" onclick="goTo(4)">次へ ›</button></div>'
-    + '</div>\n'
-
-    // Page 4
-    + '<div class="page" id="page4">'
-    + '<div class="section-badge"><span class="num">4</span> 日本語 → スペイン語</div>'
-    + '<div class="purpose-box">自分の言葉（日本語）をスペイン語で書いてみましょう。</div>'
-    + page4Audios
-    + '<div class="nav-row"><button class="next-btn" onclick="goTo(5)">次へ ›</button></div>'
-    + '</div>\n'
-
-    // Page 5
-    + '<div class="page" id="page5">'
-    + '<div class="section-badge"><span class="num">5</span> シャドーイング</div>'
-    + '<div class="purpose-box">音声を再生して、同じ速度で口に出して追いかけてみましょう。</div>'
-    + '<div class="shadow-whole">'
+    + '</div>'
+    // Shadow player slot (page 5) - always in DOM, shown/hidden
+    + '<div id="sticky-shad-slot" style="display:none">'
+    + '<div class="shadow-whole" style="margin-top:10px;margin-bottom:0">'
     + '<div class="shadow-whole-label">全体音源</div>'
     + '<div class="custom-player" id="shad-player">'
     + '<div class="player-main-row">'
@@ -2793,10 +2796,50 @@ function completeLesson(){
     + '</div>'
     + '</div>'
     + '</div>'
+    + '</div>'
+    + '</div>\n'
+
+    + '<div class="container">\n'
+
+    // Page 1 (no player here anymore - it's in sticky header)
+    + '<div class="page active" id="page1">'
+    + '<div class="page-body">'
+    + '<div class="nav-row"><button class="next-btn" onclick="goTo(2)">次へ ›</button></div>'
+    + '</div>'
+    + '</div>\n'
+
+    // Page 2
+    + '<div class="page" id="page2">'
+    + '<div class="page-body">'
+    + page2Audios
+    + '<div class="nav-row"><button class="next-btn" onclick="goTo(3)">次へ ›</button></div>'
+    + '</div>'
+    + '</div>\n'
+
+    // Page 3
+    + '<div class="page" id="page3">'
+    + '<div class="page-body">'
+    + page3Audios
+    + '<div class="nav-row"><button class="next-btn" onclick="goTo(4)">次へ ›</button></div>'
+    + '</div>'
+    + '</div>\n'
+
+    // Page 4
+    + '<div class="page" id="page4">'
+    + '<div class="page-body">'
+    + page4Audios
+    + '<div class="nav-row"><button class="next-btn" onclick="goTo(5)">次へ ›</button></div>'
+    + '</div>'
+    + '</div>\n'
+
+    // Page 5
+    + '<div class="page" id="page5">'
+    + '<div class="page-body">'
     + '<button class="text-toggle-btn" id="text-toggle-btn" onclick="toggleTextPanel()">'
     + '<span>テキストを見ながら練習する</span><span class="arrow">▼</span></button>'
     + '<div class="text-panel" id="text-panel">' + page5Audios + '</div>'
     + '<button class="complete-btn" onclick="completeLesson()">🎉 レッスン完了！</button>'
+    + '</div>'
     + '</div>\n'
 
     // Complete screen
