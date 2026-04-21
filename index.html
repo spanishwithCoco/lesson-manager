@@ -2319,15 +2319,15 @@ function generateLessonHTML(name) {
 :root{--bg:#0f0f13;--surface:#1a1a22;--surface2:#22222e;--border:#2e2e3e;--text:#e8e8f0;--muted:#7a7a92;--accent:#f4a843;--accent2:#6c9eff;--phrase:#f4a843;--word:#f4e843;--green:#4ecb71;}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:15px;line-height:1.7;}
-.progress-nav{position:sticky;top:0;z-index:100;background:rgba(15,15,19,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:10px 16px;}
-.sticky-header{position:sticky;top:53px;z-index:90;background:var(--bg);padding:16px 16px 12px;margin:-24px -16px 0;border-bottom:1px solid var(--border);box-shadow:0 4px 16px rgba(0,0,0,.18);}
+.progress-nav{position:sticky;top:0;z-index:100;background:var(--bg);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:10px 16px;}
+.sticky-header{position:sticky;top:45px;z-index:90;background:var(--bg);border-bottom:1px solid var(--border);box-shadow:0 4px 16px rgba(0,0,0,.22);}
+.sticky-header-inner{max-width:680px;margin:0 auto;padding:14px 16px 12px;}
 .sticky-header .lesson-title{font-family:'Playfair Display',serif;font-size:18px;color:var(--accent);margin-bottom:2px;}
 .sticky-header .lesson-sub{font-size:11px;color:var(--muted);margin-bottom:10px;}
 .sticky-header .section-badge{margin-bottom:10px;}
 .sticky-header .purpose-box{margin-bottom:0;}
 .sticky-header .audio-card{margin-bottom:0;margin-top:10px;}
 .sticky-header .shadow-whole{margin-bottom:0;margin-top:10px;}
-.page-body{padding-top:24px;}
 .progress-steps{display:flex;gap:6px;max-width:680px;margin:0 auto;justify-content:center;}
 .step-btn{flex:1;padding:6px 4px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'Noto Sans JP',sans-serif;font-size:10px;cursor:pointer;transition:all .2s;text-align:center;white-space:nowrap;}
 .step-btn.active{background:var(--accent);color:#000;border-color:var(--accent);font-weight:700;}
@@ -2478,7 +2478,13 @@ function goTo(n){
   updateStickyHeader(n);
   window.scrollTo({top:0,behavior:'smooth'});
 }
-window.addEventListener('DOMContentLoaded',function(){updateStickyHeader(1);});
+window.addEventListener('DOMContentLoaded',function(){
+  // Set sticky-header top to match progress-nav height exactly (no gap)
+  var nav=document.querySelector('.progress-nav');
+  var sh=document.getElementById('sticky-header');
+  if(nav&&sh){sh.style.top=nav.offsetHeight+'px';}
+  updateStickyHeader(1);
+});
 function updateSteps(n){
   for(var i=1;i<=totalPages;i++){
     var b=document.getElementById('step'+i+'-btn');
@@ -2752,7 +2758,7 @@ function completeLesson(){
     + '</div></nav>\n'
 
     // ── Sticky header (updated by JS on page change) ──
-    + '<div class="sticky-header" id="sticky-header">'
+    + '<div class="sticky-header" id="sticky-header"><div class="sticky-header-inner">'
     + '<div class="lesson-title">' + name + '</div>'
     + '<div class="lesson-sub">スペイン語レッスン</div>'
     + '<div id="sticky-badge-area"></div>'
@@ -2793,11 +2799,9 @@ function completeLesson(){
     + '<span class="speed-label">速度：</span>'
     + '<button class="spd-btn active" id="shad-spd-1" onclick="shadPlayerSetSpeed(1,this)">×1</button>'
     + '<button class="spd-btn" id="shad-spd-075" onclick="shadPlayerSetSpeed(0.75,this)">×0.75</button>'
-    + '</div>'
-    + '</div>'
-    + '</div>'
-    + '</div>'
-    + '</div>\n'
+    + '</div>'  // close sticky-shad-slot
+    + '</div>'  // close sticky-header-inner
+    + '</div>\n'  // close sticky-header
 
     + '<div class="container">\n'
 
