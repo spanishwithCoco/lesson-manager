@@ -829,22 +829,13 @@ textarea.input-field { resize: vertical; min-height: 70px; }
   <!-- STEP 1 -->
   <div class="step1-input-sticky">
     <div class="card" style="margin-bottom:0;border-radius:0;border-left:none;border-right:none;border-top:none;box-shadow:none;">
-      <div class="input-group" style="margin-bottom:10px">
+      <div class="input-group" style="margin-bottom:0">
         <label class="input-label">レッスン名</label>
         <input type="text" class="input-field" id="lesson-name" placeholder="例：Bluey Ep1-1" oninput="onLessonNameInput()">
-      </div>
-      <div class="input-group" style="margin-bottom:0">
-        <label class="input-label">オーディオ数（最大30）</label>
-        <input type="number" class="input-field" id="audio-count" min="1" max="30" placeholder="例：3" oninput="onAudioCountInput()">
       </div>
     </div>
   </div>
   <div class="container" id="create-step1">
-    <div class="card" id="file-card" style="display:none">
-      <div class="card-label">用意するオーディオファイル</div>
-      <div class="file-list" id="file-list"><!-- JS --></div>
-    </div>
-
     <button class="btn-primary" id="start-btn" onclick="goCreateStep2()" style="opacity:.5;pointer-events:none">
       レッスン作成を始める →
     </button>
@@ -859,6 +850,7 @@ textarea.input-field { resize: vertical; min-height: 70px; }
       フレーズ内に単語: <code>[por (un rato)]</code>
     </div>
     <div id="audio-inputs-container"><!-- JS --></div>
+    <button class="btn-secondary" onclick="addAudioBlock()" style="margin-bottom:16px">＋ Audioを追加する</button>
     <button class="btn-primary" onclick="goCreateStep3()">プレビューを確認する →</button>
   </div>
 
@@ -1142,14 +1134,11 @@ function startNewLesson() {
   createStep = 1;
   audioData = [];
   document.getElementById('lesson-name').value = '';
-  document.getElementById('audio-count').value = '';
-  document.getElementById('file-card').style.display = 'none';
   document.getElementById('start-btn').style.opacity = '.5';
   document.getElementById('start-btn').style.pointerEvents = 'none';
   document.getElementById('create-title').textContent = '新しいレッスン';
   showCreateStep(1);
   showScreen('screen-create');
-  // ※ WIPへの保存は「レッスン作成を始める」ボタンを押した時点（goCreateStep2）で行う
 }
 
 function editWip(id) {
@@ -1159,10 +1148,8 @@ function editWip(id) {
   currentWipId = id;
   audioData = wip.audioData || [];
   document.getElementById('lesson-name').value = wip.name || '';
-  document.getElementById('audio-count').value = wip.audioCount || '';
   document.getElementById('create-title').textContent = wip.name || '編集中';
   onLessonNameInput();
-  onAudioCountInput();
   showCreateStep(wip.step || 1);
   showScreen('screen-create');
 }
@@ -1179,7 +1166,7 @@ function deleteWip(id) {
 function saveWip(extra) {
   const db = getDB();
   const name = document.getElementById('lesson-name').value.trim();
-  const audioCount = parseInt(document.getElementById('audio-count').value) || 0;
+  const audioCount = audioData.length;
   let idx = db.wip.findIndex(w => w.id === currentWipId);
   const entry = {
     id: currentWipId,
@@ -1217,79 +1204,22 @@ function confirmBackToTop() {
 function onLessonNameInput() {
   const name = document.getElementById('lesson-name').value.trim();
   document.getElementById('create-title').textContent = name || '新しいレッスン';
-  rebuildFileList();
   checkStep1Ready();
-  // saveWip はステップ2開始時のみ行う
-}
-function onAudioCountInput() {
-  rebuildFileList();
-  checkStep1Ready();
-  // saveWip はステップ2開始時のみ行う
 }
 
 function checkStep1Ready() {
   const name = document.getElementById('lesson-name').value.trim();
-  const n = parseInt(document.getElementById('audio-count').value);
-  const ready = name.length > 0 && n >= 1 && n <= 30;
+  const ready = name.length > 0;
   document.getElementById('start-btn').style.opacity = ready ? '1' : '.5';
   document.getElementById('start-btn').style.pointerEvents = ready ? 'auto' : 'none';
 }
 
-function rebuildFileList() {
-  const name = document.getElementById('lesson-name').value.trim() || 'レッスン名';
-  const n = parseInt(document.getElementById('audio-count').value) || 0;
-  const fc = document.getElementById('file-card');
-  const fl = document.getElementById('file-list');
-  if (!name || n < 1) { fc.style.display = 'none'; return; }
-  fc.style.display = 'block';
-  const files = [
-    `${name} ×1.mp3`,
-    `${name} ×0.75.mp3`,
-    `${name} ×0.5.mp3`,
-    ...Array.from({length: n}, (_,i) => `${name}-A${i+1}.mp3`)
-  ];
-  const checkKey = 'file_checks_' + (currentWipId || 'new');
-  let savedChecks = {};
-  try { savedChecks = JSON.parse(localStorage.getItem(checkKey) || '{}'); } catch(e) {}
-
-  fl.innerHTML = files.map((f, i) => `
-    <div class="file-item" id="file-check-item-${i}">
-      <input type="checkbox" id="file-check-${i}" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent);flex-shrink:0;" onchange="toggleFileCheck(${i},this)">
-      <span class="file-name" id="file-check-name-${i}" style="text-decoration:${savedChecks[i]?'line-through':'none'};color:${savedChecks[i]?'var(--muted)':'inherit'}">${escHtml(f)}</span>
-      <button class="btn-small" onclick="copyText('${f.replace(/'/g,"\\'")}')">コピー</button>
-    </div>
-  `).join('');
-  // チェック状態の復元
-  files.forEach((_, i) => {
-    const cb = document.getElementById('file-check-' + i);
-    if (cb && savedChecks[i]) cb.checked = true;
-  });
-}
-
-function toggleFileCheck(i, cb) {
-  const checkKey = 'file_checks_' + (currentWipId || 'new');
-  let savedChecks = {};
-  try { savedChecks = JSON.parse(localStorage.getItem(checkKey) || '{}'); } catch(e) {}
-  savedChecks[i] = cb.checked;
-  try { localStorage.setItem(checkKey, JSON.stringify(savedChecks)); } catch(e) {}
-  const nameEl = document.getElementById('file-check-name-' + i);
-  if (nameEl) {
-    nameEl.style.textDecoration = cb.checked ? 'line-through' : 'none';
-    nameEl.style.color = cb.checked ? 'var(--muted)' : '';
-  }
-}
-
 function goCreateStep2() {
   const name = document.getElementById('lesson-name').value.trim();
-  const n = parseInt(document.getElementById('audio-count').value);
-  if (!name || !n) return;
-
-  // initialise audioData if needed
-  while (audioData.length < n) audioData.push({ rawText: '', sentences: [] });
-  while (audioData.length > n) audioData.pop();
-
+  if (!name) return;
+  if (!audioData.length) audioData.push({ rawText: '', sentences: [] });
   saveWip({ step: 2 });
-  buildAudioInputs(name, n);
+  buildAudioInputs(name, audioData.length);
   showCreateStep(2);
 }
 
@@ -1299,24 +1229,60 @@ function buildAudioInputs(name, n) {
   const container = document.getElementById('audio-inputs-container');
   container.innerHTML = '';
   for (let i = 0; i < n; i++) {
-    const ad = audioData[i] || { rawText: '', sentences: [] };
-    const sec = document.createElement('div');
-    sec.className = 'audio-section';
-    sec.innerHTML = `
-      <div class="audio-section-header">Audio ${i+1}</div>
-      <div class="audio-section-body">
-        <div class="input-group">
-          <label class="input-label">オーディオテキスト（センテンスを分けるには"〜"で囲む）</label>
-          <textarea class="input-field mono" id="raw-${i}" rows="3"
-            placeholder='"Sí, (los juegos) solo [hacen que] [se me pase] [por (un rato)]." "¿Podrías decirle que regresé?"'
-            oninput="onRawInput(${i})">${escHtml(ad.rawText||'')}</textarea>
-        </div>
-        <div id="sentences-container-${i}"><!-- JS --></div>
-      </div>
-    `;
-    container.appendChild(sec);
-    if (ad.rawText) buildSentencesFor(i, ad.rawText, db);
+    appendAudioBlock(i, db);
   }
+}
+
+function appendAudioBlock(i, db) {
+  db = db || getDB();
+  const ad = audioData[i] || { rawText: '', sentences: [] };
+  const container = document.getElementById('audio-inputs-container');
+  const sec = document.createElement('div');
+  sec.className = 'audio-section';
+  sec.id = 'audio-block-' + i;
+  sec.innerHTML = `
+    <div class="audio-section-header" style="display:flex;align-items:center;justify-content:space-between;">
+      <span>Audio ${i+1}</span>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button class="btn-small" onclick="toggleAudioBlock(${i})" id="audio-toggle-btn-${i}">▲ 閉じる</button>
+        ${i > 0 ? `<button class="btn-small" style="color:var(--red);border-color:var(--red)" onclick="removeAudioBlock(${i})">削除</button>` : ''}
+      </div>
+    </div>
+    <div class="audio-section-body" id="audio-body-${i}">
+      <div class="input-group">
+        <label class="input-label">オーディオテキスト（センテンスを分けるには"〜"で囲む）</label>
+        <textarea class="input-field mono" id="raw-${i}" rows="3"
+          placeholder='"Sí, (los juegos) solo [hacen que] [se me pase] [por (un rato)]." "¿Podrías decirle que regresé?"'
+          oninput="onRawInput(${i})">${escHtml(ad.rawText||'')}</textarea>
+      </div>
+      <div id="sentences-container-${i}"><!-- JS --></div>
+    </div>
+  `;
+  container.appendChild(sec);
+  if (ad.rawText) buildSentencesFor(i, ad.rawText, db);
+}
+
+function addAudioBlock() {
+  const i = audioData.length;
+  audioData.push({ rawText: '', sentences: [] });
+  appendAudioBlock(i);
+  saveWip();
+}
+
+function removeAudioBlock(i) {
+  audioData.splice(i, 1);
+  const name = document.getElementById('lesson-name').value.trim();
+  buildAudioInputs(name, audioData.length);
+  saveWip();
+}
+
+function toggleAudioBlock(i) {
+  const body = document.getElementById('audio-body-' + i);
+  const btn  = document.getElementById('audio-toggle-btn-' + i);
+  if (!body || !btn) return;
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  btn.textContent = isOpen ? '▼ 開く' : '▲ 閉じる';
 }
 
 function onRawInput(audioIdx) {
@@ -1387,9 +1353,10 @@ function buildSentencesFor(audioIdx, raw, db) {
         <div class="sentence-display">${buildCleanAnnotated(s.text)}</div>
         <div class="input-group" style="margin-bottom:6px">
           <label class="input-label">日本語の意味（自分の言葉で）</label>
-          <input class="input-field" type="text" placeholder="この文の意味を入力"
-            value="${escHtml(s.jpMeaning || '')}"
-            oninput="saveMeaning(${audioIdx},${si},'jp',0,this.value)">
+          <textarea class="input-field" rows="2" style="resize:none;overflow:hidden;"
+            placeholder="この文の意味を入力"
+            oninput="saveMeaning(${audioIdx},${si},'jp',0,this.value);this.style.height='auto';this.style.height=this.scrollHeight+'px'"
+            >${escHtml(s.jpMeaning || '')}</textarea>
         </div>
         ${phraseRows ? `<div class="meaning-section-label">FRASE（フレーズ）</div>${phraseRows}` : ''}
         <div class="meaning-section-label word-section-header" onclick="toggleWordSection('${wordSectionId}','${wordToggleId}')">
@@ -1893,7 +1860,22 @@ function buildChecklist() {
     <div class="checklist-item" id="chk-1">
       <input type="checkbox" onchange="toggleCheck(1,this)">
       <div class="checklist-content">
-        <div class="checklist-title">1. GitHub に新しいリポジトリを作成</div>
+        <div class="checklist-title">1. オーディオを収録する</div>
+        <div class="checklist-desc">
+          以下のファイル名で音源を収録・保存してください
+        </div>
+        <div style="margin-top:8px">
+          <button class="btn-small" onclick="toggleRecordingFileList(this)" style="font-size:11px">＋ ファイル一覧を確認する</button>
+        </div>
+        <div id="recording-file-list" style="display:none;margin-top:8px"><!-- JS --></div>
+      </div>
+    </div>
+
+    <!-- STEP 2 -->
+    <div class="checklist-item" id="chk-2">
+      <input type="checkbox" onchange="toggleCheck(2,this)">
+      <div class="checklist-content">
+        <div class="checklist-title">2. GitHub に新しいリポジトリを作成</div>
         <div class="checklist-desc">
           GitHub.com にログイン → 右上の「＋」→「New repository」<br><br>
           <strong>・Repository name</strong>
@@ -1910,11 +1892,11 @@ function buildChecklist() {
       </div>
     </div>
 
-    <!-- STEP 2 -->
-    <div class="checklist-item" id="chk-2">
-      <input type="checkbox" onchange="toggleCheck(2,this)">
+    <!-- STEP 3 -->
+    <div class="checklist-item" id="chk-3">
+      <input type="checkbox" onchange="toggleCheck(3,this)">
       <div class="checklist-content">
-        <div class="checklist-title">2. index.html を作成してコードを貼り付ける</div>
+        <div class="checklist-title">3. index.html を作成してコードを貼り付ける</div>
         <div class="checklist-desc">
           <strong>${escHtml(safeName)} ／ index.html</strong> in main となるように以下をコピーして貼り付け
         </div>
@@ -1933,31 +1915,15 @@ function buildChecklist() {
       </div>
     </div>
 
-    <!-- STEP 3 -->
-    <div class="checklist-item" id="chk-3">
-      <input type="checkbox" onchange="toggleCheck(3,this)">
-      <div class="checklist-content">
-        <div class="checklist-title">3. 音源ファイルを追加する</div>
-        <div class="checklist-desc">
-          <strong>&lt;&gt; Code</strong> の左隣にある「<strong>＋</strong>」ボタンを押し、<strong>Upload files</strong> を選択<br><br>
-          保存した音源ファイルをすべてドラッグ＆ドロップする<br><br>
-          ファイルの読み込みが完了したら「<strong>Commit changes</strong>」を押す
-        </div>
-        <div class="card-label" style="margin-top:10px">
-          <button class="btn-small" onclick="toggleFileListStep4(this)" style="font-size:11px">＋ アップロードするファイル一覧を確認する</button>
-        </div>
-        <div id="audio-file-list-step4" style="display:none"><!-- JS --></div>
-      </div>
-    </div>
-
     <!-- STEP 4 -->
     <div class="checklist-item" id="chk-4">
       <input type="checkbox" onchange="toggleCheck(4,this)">
       <div class="checklist-content">
-        <div class="checklist-title">4. GitHub Pages を有効にする</div>
+        <div class="checklist-title">4. 音源ファイルを追加する</div>
         <div class="checklist-desc">
-          Settings → Pages → Source: "<strong>Deploy from a branch</strong>"<br>
-          → branch: <strong>main</strong> → <strong>Save</strong>
+          <strong>&lt;&gt; Code</strong> の左隣にある「<strong>＋</strong>」ボタンを押し、<strong>Upload files</strong> を選択<br><br>
+          保存した音源ファイルをすべてドラッグ＆ドロップする<br><br>
+          ファイルの読み込みが完了したら「<strong>Commit changes</strong>」を押す
         </div>
       </div>
     </div>
@@ -1966,7 +1932,19 @@ function buildChecklist() {
     <div class="checklist-item" id="chk-5">
       <input type="checkbox" onchange="toggleCheck(5,this)">
       <div class="checklist-content">
-        <div class="checklist-title">5. URLを取得する</div>
+        <div class="checklist-title">5. GitHub Pages を有効にする</div>
+        <div class="checklist-desc">
+          Settings → Pages → Source: "<strong>Deploy from a branch</strong>"<br>
+          → branch: <strong>main</strong> → <strong>Save</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 6 -->
+    <div class="checklist-item" id="chk-6">
+      <input type="checkbox" onchange="toggleCheck(6,this)">
+      <div class="checklist-content">
+        <div class="checklist-title">6. URLを取得する</div>
         <div class="checklist-desc">
           数分経ってから、Settings → Pages を選択<br>
           以下のように表示される：<br>
@@ -1977,11 +1955,11 @@ function buildChecklist() {
       </div>
     </div>
 
-    <!-- STEP 6: URL入力 -->
-    <div class="checklist-item" id="chk-6">
-      <input type="checkbox" onchange="toggleCheck(6,this)">
+    <!-- STEP 7: URL入力 -->
+    <div class="checklist-item" id="chk-7">
+      <input type="checkbox" onchange="toggleCheck(7,this)">
       <div class="checklist-content">
-        <div class="checklist-title">6. 公開したURLを入力して保存</div>
+        <div class="checklist-title">7. 公開したURLを入力して保存</div>
         <div class="input-group" style="margin-top:10px;margin-bottom:6px">
           <label class="input-label">レッスンページURL</label>
           <input type="url" class="input-field" id="lesson-url"
@@ -1999,24 +1977,57 @@ function buildChecklist() {
     </div>
   `;
 
-  // Audio file list for step 3
-  const audioCount = parseInt(document.getElementById('audio-count').value) || 0;
-  const fileListEl = document.getElementById('audio-file-list-step4');
-  if (fileListEl) {
+  // Recording file list for step 1（オーディオ収録）
+  const audioCount = audioData.length;
+  const recordingFileListEl = document.getElementById('recording-file-list');
+  if (recordingFileListEl) {
     const files = [
       name + ' ×1.mp3',
       name + ' ×0.75.mp3',
       name + ' ×0.5.mp3',
       ...Array.from({length: audioCount}, (_,i) => name + '-A' + (i+1) + '.mp3')
     ];
-    fileListEl.innerHTML = files.map(f =>
-      `<div class="file-item"><span class="file-name">${escHtml(f)}</span></div>`
-    ).join('');
+    const checkKey = 'file_checks_' + (currentWipId || 'new');
+    let savedChecks = {};
+    try { savedChecks = JSON.parse(localStorage.getItem(checkKey) || '{}'); } catch(e) {}
+    recordingFileListEl.innerHTML = files.map((f, i) => `
+      <div class="file-item" id="rec-check-item-${i}">
+        <input type="checkbox" id="rec-check-${i}" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent);flex-shrink:0;" onchange="toggleFileCheck(${i},this,'rec-check-name-')">
+        <span class="file-name" id="rec-check-name-${i}" style="text-decoration:${savedChecks[i]?'line-through':'none'};color:${savedChecks[i]?'var(--muted)':'inherit'}">${escHtml(f)}</span>
+        <button class="btn-small" onclick="copyText('${f.replace(/'/g,"\\'")}')">コピー</button>
+      </div>
+    `).join('');
+    files.forEach((_, i) => {
+      const cb = document.getElementById('rec-check-' + i);
+      if (cb && savedChecks[i]) cb.checked = true;
+    });
   }
 }
 
 function toggleCheck(n, cb) {
   document.getElementById('chk-'+n).classList.toggle('checked', cb.checked);
+}
+
+function toggleFileCheck(i, cb, prefix) {
+  prefix = prefix || 'file-check-name-';
+  const checkKey = 'file_checks_' + (currentWipId || 'new');
+  let savedChecks = {};
+  try { savedChecks = JSON.parse(localStorage.getItem(checkKey) || '{}'); } catch(e) {}
+  savedChecks[i] = cb.checked;
+  try { localStorage.setItem(checkKey, JSON.stringify(savedChecks)); } catch(e) {}
+  const nameEl = document.getElementById(prefix + i);
+  if (nameEl) {
+    nameEl.style.textDecoration = cb.checked ? 'line-through' : 'none';
+    nameEl.style.color = cb.checked ? 'var(--muted)' : '';
+  }
+}
+
+function toggleRecordingFileList(btn) {
+  const el = document.getElementById('recording-file-list');
+  if (!el) return;
+  const isOpen = el.style.display !== 'none';
+  el.style.display = isOpen ? 'none' : 'block';
+  btn.textContent = isOpen ? '＋ ファイル一覧を確認する' : '－ 閉じる';
 }
 
 function toggleFileListStep4(btn) {
@@ -2141,15 +2152,12 @@ function editLesson(id) {
   currentWipId = id;
   audioData = lesson.audioData || [];
   document.getElementById('lesson-name').value = lesson.name || '';
-  document.getElementById('audio-count').value = lesson.audioData?.length || 0;
   document.getElementById('create-title').textContent = lesson.name || '';
-  // WIPに上書き（重複しないように findIndex で既存を更新）
   const wipIdx = db.wip.findIndex(w => w.id === id);
-  const wipEntry = { id, name: lesson.name, audioCount: lesson.audioData?.length || 0,
+  const wipEntry = { id, name: lesson.name, audioCount: audioData.length,
                      step: 1, date: nowStr(), audioData: audioData, url: lesson.url };
   if (wipIdx >= 0) db.wip[wipIdx] = wipEntry;
   else db.wip.push(wipEntry);
-  // 同IDの重複を除去（念のため）
   db.wip = db.wip.filter((w, i) => db.wip.findIndex(x => x.id === w.id) === i);
   saveDB(db);
   onLessonNameInput();
