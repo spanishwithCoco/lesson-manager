@@ -1240,10 +1240,13 @@ function appendAudioBlock(i, db) {
   const sec = document.createElement('div');
   sec.className = 'audio-section';
   sec.id = 'audio-block-' + i;
+  const totalCount = audioData.length;
   sec.innerHTML = `
     <div class="audio-section-header" style="display:flex;align-items:center;justify-content:space-between;">
       <span>Audio ${i+1}</span>
       <div style="display:flex;gap:6px;align-items:center;">
+        ${i > 0 ? `<button class="btn-small" title="上へ移動" onclick="moveAudioBlock(${i}, -1)">↑</button>` : ''}
+        ${i < totalCount - 1 ? `<button class="btn-small" title="下へ移動" onclick="moveAudioBlock(${i}, 1)">↓</button>` : ''}
         <button class="btn-small" onclick="toggleAudioBlock(${i})" id="audio-toggle-btn-${i}">▲ 閉じる</button>
         ${i > 0 ? `<button class="btn-small" style="color:var(--red);border-color:var(--red)" onclick="removeAudioBlock(${i})">削除</button>` : ''}
       </div>
@@ -1271,6 +1274,17 @@ function addAudioBlock() {
 
 function removeAudioBlock(i) {
   audioData.splice(i, 1);
+  const name = document.getElementById('lesson-name').value.trim();
+  buildAudioInputs(name, audioData.length);
+  saveWip();
+}
+
+function moveAudioBlock(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= audioData.length) return;
+  // swap in data array
+  [audioData[i], audioData[j]] = [audioData[j], audioData[i]];
+  // rebuild all blocks
   const name = document.getElementById('lesson-name').value.trim();
   buildAudioInputs(name, audioData.length);
   saveWip();
