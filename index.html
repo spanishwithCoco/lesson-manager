@@ -1362,11 +1362,12 @@ function getDB() { return loadDB(); }
 async function syncFromSupabase() {
   setSyncBadge(true);
   try {
-    const [lessons, vocab, dictRows, fcRows] = await Promise.all([
+    const [lessons, vocab, dictRows, fcRows, wipRows] = await Promise.all([
       sbSelect('lessons', 'order=date.desc'),
       sbSelect('vocab'),
       sbSelect('dict'),
       sbSelect('flashcards', 'order=created.desc'),
+      sbSelect('wip', 'order=date.desc'),
     ]);
     const db = getDB();
     db.lessons = lessons.map(l => ({
@@ -1379,28 +1380,25 @@ async function syncFromSupabase() {
       if (v.type === 'phrase') db.phrases[v.term] = v.meaning;
       else                     db.words[v.term]   = v.meaning;
     });
-    // dict: Supabaseの内容で上書き
     db.dict = {};
     dictRows.forEach(r => {
       db.dict[r.es] = {
         es: r.es, jp: r.jp, pos: r.pos || '',
         example: r.example || '', trivia: r.trivia || '',
         conjugation: r.conjugation || {},
-        // 活用形フラット配列（照合用）
         forms: r.forms || []
       };
     });
-    // flashcards: Supabaseの内容で上書き
     db.flashcards = fcRows.map(r => ({
       id: r.id, jp: r.jp, es: r.es, memo: r.memo || '', created: r.created || ''
     }));
-    // WIPの重複を除去
-    const wipMap = new Map();
-    (db.wip || []).forEach(w => {
-      const existing = wipMap.get(w.id);
-      if (!existing || (w.date || '') >= (existing.date || '')) wipMap.set(w.id, w);
-    });
-    db.wip = [...wipMap.values()];
+    // wip: Supabaseの内容で上書き（端末間で共有）
+    db.wip = wipRows.map(r => ({
+      id: r.id, name: r.name, audioCount: r.audio_count || 0,
+      step: r.step || 1, date: r.date || '',
+      url: r.url || '',
+      audioData: r.audio_data || []
+    }));
     saveDB(db);
     setSyncBadge(false, true);
     return db;
@@ -1592,6 +1590,7 @@ function deleteWip(id) {
   const db = getDB();
   db.wip = db.wip.filter(w => w.id !== id);
   saveDB(db);
+  sbDelete('wip', { id }).catch(e => console.warn('wip delete error:', e));
   renderTop(false);
   toast('削除しました');
 }
@@ -1613,6 +1612,16 @@ function saveWip(extra) {
   if (idx >= 0) db.wip[idx] = { ...db.wip[idx], ...entry };
   else db.wip.push(entry);
   saveDB(db);
+  // Supabaseにも非同期で保存（エラーは無視してUIをブロックしない）
+  sbUpsert('wip', {
+    id: entry.id,
+    name: entry.name,
+    audio_count: entry.audioCount,
+    step: entry.step,
+    date: entry.date,
+    url: entry.url || '',
+    audio_data: entry.audioData
+  }).catch(e => console.warn('wip push error:', e));
 }
 
 function showCreateStep(n) {
@@ -2545,6 +2554,8 @@ async function finishLesson() {
 
   try {
     await pushLesson(lesson);
+    // 完了したwipをSupabaseからも削除
+    await sbDelete('wip', { id: currentWipId }).catch(()=>{});
     toast('レッスンを保存しました！');
   } catch(e) {
     toast('ローカル保存済み（クラウド同期エラー）');
