@@ -692,6 +692,27 @@ textarea.input-field { resize: vertical; min-height: 70px; }
 }
 .page-num { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); }
 
+/* ── visibility ドロップダウン ── */
+.vis-select {
+  padding: 5px 8px; border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 11px; color: var(--text);
+  cursor: pointer; transition: all .15s;
+  appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238a8070'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 7px center;
+  padding-right: 22px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.vis-select:focus { outline: none; border-color: var(--accent); }
+.vis-select[data-vis="public"]  { border-color: var(--green);  color: var(--green);  background-color: var(--green-soft); }
+.vis-select[data-vis="members"] { border-color: var(--accent2); color: var(--accent2); background-color: rgba(61,107,140,0.08); }
+.vis-select[data-vis="private"] { border-color: var(--muted);  color: var(--muted);  background-color: var(--surface2); }
+
 /* sync status */
 .sync-badge {
   display: inline-flex; align-items: center; gap: 5px;
@@ -1372,7 +1393,8 @@ async function syncFromSupabase() {
     const db = getDB();
     db.lessons = lessons.map(l => ({
       id: l.id, name: l.name, url: l.url, date: l.date,
-      audioData: l.audio_data || []
+      audioData: l.audio_data || [],
+      visibility: l.visibility || 'private'
     }));
     db.phrases = {};
     db.words   = {};
@@ -1386,11 +1408,13 @@ async function syncFromSupabase() {
         es: r.es, jp: r.jp, pos: r.pos || '',
         example: r.example || '', trivia: r.trivia || '',
         conjugation: r.conjugation || {},
-        forms: r.forms || []
+        forms: r.forms || [],
+        visibility: r.visibility || 'members'
       };
     });
     db.flashcards = fcRows.map(r => ({
-      id: r.id, jp: r.jp, es: r.es, memo: r.memo || '', created: r.created || ''
+      id: r.id, jp: r.jp, es: r.es, memo: r.memo || '', created: r.created || '',
+      visibility: r.visibility || 'members'
     }));
     // wip: Supabaseの内容で上書き（端末間で共有）
     db.wip = wipRows.map(r => ({
@@ -2595,18 +2619,26 @@ async function renderLessonList(doSync) {
 
   container.innerHTML = Object.entries(months).sort((a,b)=>b[0].localeCompare(a[0])).map(([month, ls]) => `
     <div class="month-header">${month}</div>
-    ${ls.map(l => `
+    ${ls.map(l => {
+      const vis = l.visibility || 'private';
+      return `
       <div class="lesson-list-item">
         <div class="lesson-list-info">
           <div class="lesson-list-name">${escHtml(l.name)}</div>
           <div class="lesson-list-date">${l.date || ''}</div>
         </div>
         <div class="lesson-list-actions">
+          <select class="vis-select" data-vis="${vis}" data-id="${l.id}" data-type="lesson"
+            onchange="updateVisibility('lesson','${l.id}',this)">
+            <option value="public"  ${vis==='public'  ?'selected':''}>🌐 無料公開</option>
+            <option value="members" ${vis==='members' ?'selected':''}>🔒 限定公開</option>
+            <option value="private" ${vis==='private' ?'selected':''}>🚫 非公開</option>
+          </select>
           <button class="btn-small" onclick="window.open('${escHtml(l.url)}','_blank')">確認</button>
           <button class="btn-small" onclick="editLesson('${l.id}')">編集</button>
         </div>
-      </div>
-    `).join('')}
+      </div>`;
+    }).join('')}
   `).join('');
 }
 
@@ -2751,6 +2783,56 @@ function renderPagination(id, current, total, onPage) {
     <span class="page-num">${current+1} / ${total}</span>
     <button class="btn-small" onclick="(${onPage.toString()})(${current+1})" ${current>=total-1?'disabled':''}>次へ →</button>
   `;
+}
+
+// ── VISIBILITY 即時保存 ─────────────────────────
+async function updateVisibility(type, id, selectEl) {
+  const vis = selectEl.value;
+  selectEl.setAttribute('data-vis', vis);
+  const db = getDB();
+
+  if (type === 'lesson') {
+    const idx = db.lessons.findIndex(l => l.id === id);
+    if (idx >= 0) {
+      db.lessons[idx].visibility = vis;
+      saveDB(db);
+      try {
+        await sbUpsert('lessons', {
+          id: db.lessons[idx].id, name: db.lessons[idx].name,
+          url: db.lessons[idx].url, date: db.lessons[idx].date,
+          audio_data: db.lessons[idx].audioData, visibility: vis
+        });
+      } catch(e) { console.warn('visibility sync error:', e); }
+    }
+  } else if (type === 'flashcard') {
+    const idx = (db.flashcards||[]).findIndex(f => f.id === id);
+    if (idx >= 0) {
+      db.flashcards[idx].visibility = vis;
+      saveDB(db);
+      try {
+        await sbUpsert('flashcards', {
+          id: db.flashcards[idx].id, jp: db.flashcards[idx].jp,
+          es: db.flashcards[idx].es, memo: db.flashcards[idx].memo || '',
+          created: db.flashcards[idx].created || '', visibility: vis
+        });
+      } catch(e) { console.warn('fc visibility sync error:', e); }
+    }
+  } else if (type === 'dict') {
+    if (db.dict && db.dict[id]) {
+      db.dict[id].visibility = vis;
+      saveDB(db);
+      try {
+        const entry = db.dict[id];
+        await sbUpsert('dict', {
+          es: entry.es, jp: entry.jp, pos: entry.pos || '',
+          example: entry.example || '', trivia: entry.trivia || '',
+          conjugation: entry.conjugation || {}, forms: entry.forms || [],
+          visibility: vis
+        });
+      } catch(e) { console.warn('dict visibility sync error:', e); }
+    }
+  }
+  toast('保存しました ✓');
 }
 
 // ── レッスンVOCABタブ切替 ────────────────────────
@@ -2929,19 +3011,26 @@ async function renderDictList(doSync) {
     return;
   }
 
-  container.innerHTML = page.map(([term, d]) => `
+  container.innerHTML = page.map(([term, d]) => {
+    const vis = d.visibility || 'members';
+    return `
     <div class="dict-item">
       <div class="dict-item-top">
         <span class="dict-term">${escHtml(term)}</span>
         ${d.pos ? `<span class="dict-pos-badge">${escHtml(d.pos)}</span>` : ''}
         <span class="dict-meaning">${escHtml(d.jp||'')}</span>
+        <select class="vis-select" data-vis="${vis}"
+          onchange="updateVisibility('dict','${term.replace(/'/g,"\\'")}',this)">
+          <option value="public"  ${vis==='public'  ?'selected':''}>🌐 無料公開</option>
+          <option value="members" ${vis==='members' ?'selected':''}>🔒 限定公開</option>
+        </select>
         <button class="btn-small" onclick="openDictModal('${term.replace(/'/g,"\\'")}')">編集</button>
         <button class="btn-small" style="color:var(--red);border-color:var(--red)" onclick="deleteDictEntry('${term.replace(/'/g,"\\'")}')">削除</button>
       </div>
       ${d.example ? `<div style="font-size:12px;color:var(--muted);margin-top:6px">例: ${escHtml(d.example)}</div>` : ''}
       ${d.conjugation && Object.keys(d.conjugation).length ? `<div style="font-size:11px;color:var(--accent2);margin-top:4px">活用表あり</div>` : ''}
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 
   renderPagination('dict-pagination', dictPage, totalPages, p => { dictPage = p; renderDictList(); });
 }
@@ -3037,7 +3126,9 @@ async function renderFlashcardList(doSync) {
   document.getElementById('fc-preview-area').style.display = 'block';
   showFCPreview(_fcPreviewIdx);
 
-  container.innerHTML = page.map((f, i) => `
+  container.innerHTML = page.map((f, i) => {
+    const vis = f.visibility || 'members';
+    return `
     <div class="fc-item">
       <div class="fc-item-top">
         <div style="flex:1">
@@ -3046,13 +3137,18 @@ async function renderFlashcardList(doSync) {
           ${f.memo ? `<div style="font-size:11px;color:var(--muted);margin-top:4px">${escHtml(f.memo)}</div>` : ''}
         </div>
         <div class="fc-actions">
+          <select class="vis-select" data-vis="${vis}"
+            onchange="updateVisibility('flashcard','${f.id}',this)">
+            <option value="public"  ${vis==='public'  ?'selected':''}>🌐 無料公開</option>
+            <option value="members" ${vis==='members' ?'selected':''}>🔒 限定公開</option>
+          </select>
           <button class="btn-small" onclick="previewFC(${entries.indexOf(f)})">プレビュー</button>
           <button class="btn-small" onclick="openFCModal('${f.id}')">編集</button>
           <button class="btn-small" style="color:var(--red);border-color:var(--red)" onclick="deleteFCEntry('${f.id}')">削除</button>
         </div>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 
   renderPagination('fc-pagination', fcPage, totalPages, p => { fcPage = p; renderFlashcardList(); });
 }
