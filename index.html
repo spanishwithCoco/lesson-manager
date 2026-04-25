@@ -1455,7 +1455,8 @@ function setSyncBadge(syncing, success) {
 async function pushLesson(lesson) {
   await sbUpsert('lessons', {
     id: lesson.id, name: lesson.name, url: lesson.url,
-    date: lesson.date, audio_data: lesson.audioData
+    date: lesson.date, audio_data: lesson.audioData,
+    visibility: lesson.visibility || 'private'
   });
 }
 
@@ -2568,7 +2569,8 @@ async function finishLesson() {
 
   const lesson = {
     id: currentWipId, name, url,
-    date: originalDate, audioData
+    date: originalDate, audioData,
+    visibility: existingIdx >= 0 ? (db.lessons[existingIdx].visibility || 'private') : 'private'
   };
 
   if (existingIdx >= 0) db.lessons[existingIdx] = lesson;
