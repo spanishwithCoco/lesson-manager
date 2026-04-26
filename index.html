@@ -943,6 +943,7 @@ textarea.input-field { resize: vertical; min-height: 70px; }
   font-size: 12px; color: var(--text);
 }
 .conj-input:focus { outline: none; border-color: var(--accent); background: var(--surface); }
+.conj-input.jp-input { font-family: 'Noto Sans JP', sans-serif; font-size: 11px; }
 .tense-header {
   background: var(--surface2);
   border: 1px solid var(--border);
@@ -1684,11 +1685,11 @@ function showScreen(id) {
 }
 
 // ── TOAST ────────────────────────────────────────
-function toast(msg) {
+function toast(msg, duration) {
   const el = document.getElementById('toast');
   el.textContent = msg;
   el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 2000);
+  setTimeout(() => el.classList.remove('show'), duration || 2000);
 }
 
 // ── COPY ────────────────────────────────────────
@@ -3108,7 +3109,7 @@ function buildConjTable(savedConj) {
     <div class="conj-table-wrap">
       <table class="conj-table">
         <thead><tr>
-          <th>代名詞</th><th>活用</th><th>例文</th>
+          <th>代名詞</th><th>活用</th><th>例文（ES）</th><th>意味（JP）</th>
         </tr></thead>
         <tbody>
           ${PRONOUNS.map(pr => {
@@ -3116,8 +3117,9 @@ function buildConjTable(savedConj) {
             const saved = savedConj[safeKey] || {};
             return `<tr>
               <td class="conj-pron">${pr}</td>
-              <td><input class="conj-input" id="conj-form-${safeKey}" value="${escHtml(saved.form||'')}" placeholder="活用形"></td>
-              <td><input class="conj-input" id="conj-ex-${safeKey}" value="${escHtml(saved.example||'')}" placeholder="例文"></td>
+              <td><input class="conj-input" id="conj-form-${safeKey}" value="${escHtml(saved.form||'')}" placeholder="活用形" onblur="saveDictDraft()"></td>
+              <td><input class="conj-input" id="conj-ex-${safeKey}" value="${escHtml(saved.example||'')}" placeholder="例文" onblur="saveDictDraft()"></td>
+              <td><input class="conj-input jp-input" id="conj-jp-${safeKey}" value="${escHtml(saved.meaning||'')}" placeholder="日本語の意味" onblur="saveDictDraft()"></td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -3131,12 +3133,62 @@ function collectConjugation() {
   TENSES.forEach(t => {
     PRONOUNS.forEach(pr => {
       const safeKey = t.key + '_' + pr.replace(/[^a-z]/gi,'');
-      const form = document.getElementById('conj-form-' + safeKey)?.value.trim() || '';
-      const ex   = document.getElementById('conj-ex-'   + safeKey)?.value.trim() || '';
-      if (form || ex) conj[safeKey] = { form, example: ex };
+      const form    = document.getElementById('conj-form-' + safeKey)?.value.trim() || '';
+      const ex      = document.getElementById('conj-ex-'   + safeKey)?.value.trim() || '';
+      const meaning = document.getElementById('conj-jp-'   + safeKey)?.value.trim() || '';
+      if (form || ex || meaning) conj[safeKey] = { form, example: ex, meaning };
     });
   });
   return conj;
+}
+
+// ── 活用表例文 → フラッシュカード自動生成 ──────────────
+async function autoGenConjFCs(verbEs, verbJp, conjugation) {
+  if (!conjugation || !Object.keys(conjugation).length) return 0;
+  const db = getDB();
+  if (!db.flashcards) db.flashcards = [];
+  if (!db.fc_categories) db.fc_categories = [];
+
+  // 時制カテゴリを確保（なければ追加）
+  const tenseCategories = {};
+  for (const t of TENSES) {
+    let cat = db.fc_categories.find(c => c.name === t.label);
+    if (!cat) {
+      cat = { id: 'cat_tense_' + t.key, name: t.label, created: todayStr() };
+      db.fc_categories.push(cat);
+      try { await pushFCCategory(cat); } catch(e) {}
+    }
+    tenseCategories[t.key] = cat.id;
+  }
+
+  let added = 0;
+  for (const t of TENSES) {
+    for (const pr of PRONOUNS) {
+      const safeKey = t.key + '_' + pr.replace(/[^a-z]/gi,'');
+      const cell = conjugation[safeKey];
+      if (!cell?.example || !cell?.meaning) continue;
+
+      // 同じ例文のFCが既にあればスキップ
+      const dup = db.flashcards.find(f => f.es === cell.example && f.type === 'conj');
+      if (dup) continue;
+
+      const fc = {
+        id: 'fc_conj_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+        type: 'conj',                      // 活用例文専用種別
+        category: tenseCategories[t.key],
+        es: cell.example,                  // 表面：スペイン語例文
+        jp: cell.meaning,                  // 裏面：日本語意味
+        memo: `${verbEs}(${verbJp}) ${pr} ${t.label}`,
+        verb: verbEs, pronoun: pr, tense: t.key, form: cell.form || '',
+        created: todayStr()
+      };
+      db.flashcards.push(fc);
+      try { await pushFC(fc); } catch(e) {}
+      added++;
+    }
+  }
+  saveDB(db);
+  return added;
 }
 
 async function saveDictEntry() {
@@ -3164,10 +3216,17 @@ async function saveDictEntry() {
     pushVocab('word', es, jp).catch(()=>{});
   }
 
+  // 活用表の例文→FC自動生成（動詞のみ）
+  let conjFCCount = 0;
+  if (pos === '動詞' && entry.conjugation) {
+    conjFCCount = await autoGenConjFCs(es, jp, entry.conjugation);
+  }
+
   // Supabaseに保存
   try {
     await pushDict(entry);
-    toast('辞書に保存しました');
+    const conjMsg = conjFCCount > 0 ? `（活用例文 ${conjFCCount}枚をFCに追加）` : '';
+    toast('辞書に保存しました' + conjMsg);
   } catch(e) {
     console.warn('dict sync error:', e);
     toast('辞書に保存しました（ローカルのみ）');
@@ -3194,9 +3253,9 @@ const DRAFT_DICT_KEY = 'draft_dict_modal';
 const DRAFT_FC_KEY   = 'draft_fc_modal';
 const DRAFT_FCD_KEY  = 'draft_fcd_modal';
 
-function saveDictDraft() {
+function saveDictDraft(silent) {
   const pos = document.querySelector('.pos-btn.selected')?.dataset.pos || '';
-  const conj = collectConjugation ? collectConjugation() : {};
+  const conj = typeof collectConjugation === 'function' ? collectConjugation() : {};
   const draft = {
     term: _dictModalTerm, sourceType: _dictModalSourceType,
     es: document.getElementById('dict-es')?.value || '',
@@ -3206,6 +3265,7 @@ function saveDictDraft() {
     pos, conj
   };
   try { sessionStorage.setItem(DRAFT_DICT_KEY, JSON.stringify(draft)); } catch(e) {}
+  if (!silent) toast('下書き保存しました', 1400);
 }
 
 function clearDictDraft() {
@@ -3226,7 +3286,7 @@ function restoreDictDraft(draft) {
   if (draft.conj && Object.keys(draft.conj).length) buildConjTable(draft.conj);
 }
 
-function saveFCDraft() {
+function saveFCDraft(silent) {
   const draft = {
     jp: document.getElementById('fc-jp')?.value || '',
     es: document.getElementById('fc-es-input')?.value || '',
@@ -3234,18 +3294,20 @@ function saveFCDraft() {
     type: _fcSelectedType, category: _fcSelectedCat, editId: _fcEditId
   };
   try { sessionStorage.setItem(DRAFT_FC_KEY, JSON.stringify(draft)); } catch(e) {}
+  if (!silent) toast('下書き保存しました', 1400);
 }
 
 function clearFCDraft() {
   try { sessionStorage.removeItem(DRAFT_FC_KEY); } catch(e) {}
 }
 
-function saveFCDDraft() {
+function saveFCDDraft(silent) {
   const draft = {
     type: _fcDictType, category: _fcDictCat, es: _fcDictEs, jp: _fcDictJp,
     examples: _fcDictExamples
   };
   try { sessionStorage.setItem(DRAFT_FCD_KEY, JSON.stringify(draft)); } catch(e) {}
+  if (!silent) toast('下書き保存しました', 1400);
 }
 
 function clearFCDDraft() {
