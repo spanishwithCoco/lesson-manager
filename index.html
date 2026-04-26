@@ -3058,12 +3058,25 @@ function openDictModal(term, sourceType) {
   buildConjTable(existing?.conjugation || {});
   toggleConjSection(existing?.pos === '動詞');
 
+  // 下書きがあり、同じ単語の場合は上書き復元
+  try {
+    const raw = sessionStorage.getItem(DRAFT_DICT_KEY);
+    if (raw) {
+      const draft = JSON.parse(raw);
+      if (draft.term === term) {
+        restoreDictDraft(draft);
+        _dictModalSourceType = draft.sourceType || sourceType || 'word';
+      }
+    }
+  } catch(e) {}
+
   document.getElementById('dict-modal').classList.add('active');
 }
 
 function closeDictModal() {
   document.getElementById('dict-modal').classList.remove('active');
   _dictModalTerm = null;
+  clearDictDraft();
 }
 
 // 辞書登録をスキップしてFCモーダルへ直行
@@ -3073,6 +3086,7 @@ function skipDictToFC() {
   // 入力欄の値を取得（途中まで入力していた場合も拾う）
   const esVal = (document.getElementById('dict-es')?.value || term).trim();
   const jpVal = (document.getElementById('dict-jp')?.value || '').trim();
+  clearDictDraft();
   closeDictModal();
   openFCFromDictModal(esVal, jpVal, sourceType);
 }
@@ -3159,7 +3173,7 @@ async function saveDictEntry() {
     toast('辞書に保存しました（ローカルのみ）');
   }
 
-  closeDictModal();
+  closeDictModal(); // clearDictDraftも内部で呼ばれる
 
   // 辞書→FC連携ポップアップを開く
   openFCFromDictModal(es, jp, _dictModalSourceType);
@@ -3175,6 +3189,86 @@ async function saveDictEntry() {
   }
 }
 
+// ── 自動下書き保存 ────────────────────────────────
+const DRAFT_DICT_KEY = 'draft_dict_modal';
+const DRAFT_FC_KEY   = 'draft_fc_modal';
+const DRAFT_FCD_KEY  = 'draft_fcd_modal';
+
+function saveDictDraft() {
+  const pos = document.querySelector('.pos-btn.selected')?.dataset.pos || '';
+  const conj = collectConjugation ? collectConjugation() : {};
+  const draft = {
+    term: _dictModalTerm, sourceType: _dictModalSourceType,
+    es: document.getElementById('dict-es')?.value || '',
+    jp: document.getElementById('dict-jp')?.value || '',
+    example: document.getElementById('dict-example')?.value || '',
+    trivia: document.getElementById('dict-trivia')?.value || '',
+    pos, conj
+  };
+  try { sessionStorage.setItem(DRAFT_DICT_KEY, JSON.stringify(draft)); } catch(e) {}
+}
+
+function clearDictDraft() {
+  try { sessionStorage.removeItem(DRAFT_DICT_KEY); } catch(e) {}
+}
+
+function restoreDictDraft(draft) {
+  if (!draft) return;
+  if (draft.es) document.getElementById('dict-es').value = draft.es;
+  if (draft.jp) document.getElementById('dict-jp').value = draft.jp;
+  if (draft.example) document.getElementById('dict-example').value = draft.example;
+  if (draft.trivia) document.getElementById('dict-trivia').value = draft.trivia;
+  if (draft.pos) {
+    document.querySelectorAll('.pos-btn').forEach(b => b.classList.remove('selected'));
+    const btn = document.querySelector(`.pos-btn[data-pos="${draft.pos}"]`);
+    if (btn) { btn.classList.add('selected'); toggleConjSection(draft.pos === '動詞'); }
+  }
+  if (draft.conj && Object.keys(draft.conj).length) buildConjTable(draft.conj);
+}
+
+function saveFCDraft() {
+  const draft = {
+    jp: document.getElementById('fc-jp')?.value || '',
+    es: document.getElementById('fc-es-input')?.value || '',
+    memo: document.getElementById('fc-memo')?.value || '',
+    type: _fcSelectedType, category: _fcSelectedCat, editId: _fcEditId
+  };
+  try { sessionStorage.setItem(DRAFT_FC_KEY, JSON.stringify(draft)); } catch(e) {}
+}
+
+function clearFCDraft() {
+  try { sessionStorage.removeItem(DRAFT_FC_KEY); } catch(e) {}
+}
+
+function saveFCDDraft() {
+  const draft = {
+    type: _fcDictType, category: _fcDictCat, es: _fcDictEs, jp: _fcDictJp,
+    examples: _fcDictExamples
+  };
+  try { sessionStorage.setItem(DRAFT_FCD_KEY, JSON.stringify(draft)); } catch(e) {}
+}
+
+function clearFCDDraft() {
+  try { sessionStorage.removeItem(DRAFT_FCD_KEY); } catch(e) {}
+}
+
+// blur自動保存の初期化（DOMContentLoaded後に呼ぶ）
+function initAutoDraftListeners() {
+  // 辞書モーダルの入力欄
+  ['dict-es','dict-jp','dict-example','dict-trivia'].forEach(id => {
+    document.getElementById(id)?.addEventListener('blur', saveDictDraft);
+  });
+  // 活用表は動的生成なのでイベント委任
+  document.getElementById('conj-tenses')?.addEventListener('blur', saveDictDraft, true);
+
+  // FCモーダルの入力欄
+  ['fc-jp','fc-es-input','fc-memo'].forEach(id => {
+    document.getElementById(id)?.addEventListener('blur', saveFCDraft);
+  });
+
+  // FC-from-dictモーダルの例文欄はrenderFCDExamples内で都度付与
+}
+
 // ── 辞書→FC連携モーダル ─────────────────────────
 function openFCFromDictModal(es, jp, sourceType) {
   _fcDictEs = es; _fcDictJp = jp;
@@ -3182,15 +3276,30 @@ function openFCFromDictModal(es, jp, sourceType) {
   _fcDictType = initType; _fcDictCat = '';
   // 例文リセット
   _fcDictExamples = [];
+
+  // 下書き復元（同じes/jpの場合）
+  try {
+    const raw = sessionStorage.getItem(DRAFT_FCD_KEY);
+    if (raw) {
+      const draft = JSON.parse(raw);
+      if (draft.es === es && draft.jp === jp) {
+        _fcDictType = draft.type || initType;
+        _fcDictCat = draft.category || '';
+        _fcDictExamples = draft.examples || [];
+      }
+    }
+  } catch(e) {}
+
   document.getElementById('fcd-jp-preview').textContent = jp || '—';
   document.getElementById('fcd-es-preview').textContent = es || '—';
-  setFCDType(initType, true);
+  setFCDType(_fcDictType, true);
   renderFCDCatChips();
   renderFCDExamples();
   document.getElementById('fc-from-dict-modal').classList.add('active');
 }
 function closeFCFromDictModal() {
   document.getElementById('fc-from-dict-modal').classList.remove('active');
+  clearFCDDraft();
 }
 function setFCDType(type, noRender) {
   _fcDictType = type;
@@ -3227,12 +3336,14 @@ function renderFCDExamples() {
       <div style="display:flex;gap:6px;margin-bottom:4px">
         <input class="input-field" style="font-size:13px;padding:8px 10px" placeholder="例文（スペイン語）"
           value="${escHtml(ex.es)}"
-          oninput="updateFCDExample(${i},'es',this.value)">
+          oninput="updateFCDExample(${i},'es',this.value)"
+          onblur="saveFCDDraft()">
         <button class="btn-small" style="color:var(--red);border-color:var(--red);flex-shrink:0" onclick="removeFCDExample(${i})">✕</button>
       </div>
       <input class="input-field" style="font-size:13px;padding:8px 10px" placeholder="例文の意味（日本語）"
         value="${escHtml(ex.jp)}"
-        oninput="updateFCDExample(${i},'jp',this.value)">
+        oninput="updateFCDExample(${i},'jp',this.value)"
+        onblur="saveFCDDraft()">
     </div>
   `).join('');
 }
@@ -3361,6 +3472,24 @@ function openFCModal(id, prefillJp, prefillEs) {
   setFCType(_fcSelectedType, true);
   renderFCCatChips();
   document.getElementById('fc-cat-manager').style.display = 'none';
+
+  // 新規追加のみ下書き復元（編集中は既存データ優先）
+  if (!id) {
+    try {
+      const raw = sessionStorage.getItem(DRAFT_FC_KEY);
+      if (raw) {
+        const draft = JSON.parse(raw);
+        if (!draft.editId) { // 新規の下書きのみ
+          if (draft.jp) document.getElementById('fc-jp').value = draft.jp;
+          if (draft.es) document.getElementById('fc-es-input').value = draft.es;
+          if (draft.memo) document.getElementById('fc-memo').value = draft.memo;
+          if (draft.type) { _fcSelectedType = draft.type; setFCType(draft.type, true); }
+          if (draft.category !== undefined) { _fcSelectedCat = draft.category; renderFCCatChips(); }
+        }
+      }
+    } catch(e) {}
+  }
+
   document.getElementById('fc-modal').classList.add('active');
 }
 
@@ -3442,6 +3571,7 @@ async function deleteCategory(id) {
 function closeFCModal() {
   document.getElementById('fc-modal').classList.remove('active');
   _fcEditId = null;
+  clearFCDraft();
 }
 
 async function saveFCEntry() {
@@ -3865,6 +3995,7 @@ const STORAGE_KEY = 'lesson_` + storageKey + `';
 let ldata = JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');
 function saveInput(k,v){ldata[k]=v;localStorage.setItem(STORAGE_KEY,JSON.stringify(ldata));}
 window.addEventListener('DOMContentLoaded',function(){
+  initAutoDraftListeners();
   document.querySelectorAll('textarea').forEach(function(t){
     var m=t.getAttribute('oninput');
     var k=m&&m.match(/saveInput\\('([^']+)'/);
