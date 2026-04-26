@@ -1227,14 +1227,25 @@ textarea.input-field { resize: vertical; min-height: 70px; }
     <!-- プレビューエリア -->
     <div id="fc-preview-area" style="display:none;margin-bottom:20px">
       <div class="card" style="margin-bottom:8px">
-        <div class="card-label">プレビュー（タップして確認）</div>
+        <div class="card-label" style="display:flex;align-items:center;justify-content:space-between">
+          プレビュー（タップして確認）
+          <div style="display:flex;gap:6px;align-items:center">
+            <span style="font-size:10px;color:var(--muted)">出題方向：</span>
+            <button class="btn-small" id="fc-dir-es2jp" onclick="setFCDirection('es2jp',this)" style="font-size:10px">ES→JP</button>
+            <button class="btn-small" id="fc-dir-jp2es" onclick="setFCDirection('jp2es',this)" style="font-size:10px">JP→ES</button>
+          </div>
+        </div>
         <div class="fc-preview-card" id="fc-preview-card" onclick="flipFCPreview()">
           <div class="fc-preview-jp" id="fc-preview-jp">日本語</div>
           <div class="fc-preview-es" id="fc-preview-es">Español</div>
           <div class="fc-preview-examples" id="fc-preview-examples"></div>
           <div class="fc-preview-hint" id="fc-preview-hint">タップして確認</div>
         </div>
-        <div style="display:flex;gap:8px;justify-content:center">
+        <!-- 裏面：辞書ボタン -->
+        <div id="fc-dict-btn-wrap" style="display:none;text-align:center;margin-top:8px">
+          <button class="btn-small" id="fc-open-dict-btn" onclick="openDictFromFC()" style="font-size:12px;padding:7px 18px">📖 辞書で確認する</button>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:8px">
           <button class="btn-small" onclick="prevFCCard(-1)">← 前へ</button>
           <span class="page-num" id="fc-preview-num">1 / 1</span>
           <button class="btn-small" onclick="prevFCCard(1)">次へ →</button>
@@ -3485,101 +3496,7 @@ async function saveDictEntry() {
   let wordFCAdded = 0;
   if (!db.flashcards) db.flashcards = [];
 
-  if (pos === '名詞') {
-    // 名詞：定冠詞単数・定冠詞複数を別カードとして登録（入力があるもののみ）
-    const nounCards = [
-      { esForm: nounForms.sgDef,   label: '単数' },
-      { esForm: nounForms.plDef,   label: '複数' },
-      { esForm: nounForms.sgIndef, label: '単数（不定）' },
-      { esForm: nounForms.plIndef, label: '複数（不定）' },
-    ].filter(c => c.esForm);
-
-    for (const nc of nounCards) {
-      const dup = db.flashcards.find(f => f.es === nc.esForm && f.type === 'word');
-      if (dup) continue;
-      const fc = {
-        id: 'fc_noun_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
-        type: 'word', category: '',
-        es: nc.esForm, jp: jp,
-        memo: `[名詞] ${nc.label}`,
-        created: todayStr()
-      };
-      db.flashcards.push(fc);
-      try { await pushFC(fc); } catch(e) {}
-      wordFCAdded++;
-    }
-    // 入力がない場合は見出し語（裸の形）でカード作成
-    if (wordFCAdded === 0 && es && jp) {
-      const dup = db.flashcards.find(f => f.es === es && f.type === 'word');
-      if (!dup) {
-        const fc = { id: 'fc_word_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
-          type: 'word', category: '', es, jp, memo: '[名詞]', created: todayStr() };
-        db.flashcards.push(fc);
-        try { await pushFC(fc); } catch(e) {}
-        wordFCAdded = 1;
-      }
-    }
-    saveDB(db);
-    // 名詞：見出し語そのものも必ずカード登録（冠詞付きとは別に1枚）
-    if (es && jp) {
-      const dupBase = db.flashcards.find(f => f.es === es && f.type === 'word');
-      if (!dupBase) {
-        const fc = { id: 'fc_word_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
-          type: 'word', category: '', es, jp, memo: '[名詞] 見出し語', created: todayStr() };
-        db.flashcards.push(fc);
-        try { await pushFC(fc); } catch(e) {}
-        wordFCAdded++;
-        saveDB(db);
-      }
-    }
-  } else if (pos === '形容詞') {
-    // 形容詞：男性単数・女性単数・男性複数・女性複数をセットで登録
-    const adjCards = [
-      { esForm: adjForms.msg, label: '男性単数' },
-      { esForm: adjForms.fsg, label: '女性単数' },
-      { esForm: adjForms.mpl, label: '男性複数' },
-      { esForm: adjForms.fpl, label: '女性複数' },
-    ].filter(c => c.esForm);
-
-    for (const ac of adjCards) {
-      const dup = db.flashcards.find(f => f.es === ac.esForm && f.type === 'word');
-      if (dup) continue;
-      const fc = {
-        id: 'fc_adj_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
-        type: 'word', category: '',
-        es: ac.esForm, jp: jp,
-        memo: `[形容詞] ${ac.label}`,
-        created: todayStr()
-      };
-      db.flashcards.push(fc);
-      try { await pushFC(fc); } catch(e) {}
-      wordFCAdded++;
-    }
-    // 入力がない場合は見出し語でカード作成
-    if (wordFCAdded === 0 && es && jp) {
-      const dup = db.flashcards.find(f => f.es === es && f.type === 'word');
-      if (!dup) {
-        const fc = { id: 'fc_word_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
-          type: 'word', category: '', es, jp, memo: '[形容詞]', created: todayStr() };
-        db.flashcards.push(fc);
-        try { await pushFC(fc); } catch(e) {}
-        wordFCAdded = 1;
-      }
-    }
-    saveDB(db);
-    // 形容詞：見出し語そのものも必ずカード登録（変化形とは別に1枚）
-    if (es && jp) {
-      const dupBase = db.flashcards.find(f => f.es === es && f.type === 'word');
-      if (!dupBase) {
-        const fc = { id: 'fc_word_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
-          type: 'word', category: '', es, jp, memo: '[形容詞] 見出し語', created: todayStr() };
-        db.flashcards.push(fc);
-        try { await pushFC(fc); } catch(e) {}
-        wordFCAdded++;
-        saveDB(db);
-      }
-    }
-  } else if (es && jp) {
+  if (es && jp) {
     // 名詞以外：見出し語でカード1枚
     const dupWord = db.flashcards.find(f => f.es === es && (f.type === 'word' || f.type === 'phrase'));
     if (!dupWord) {
@@ -4214,6 +4131,11 @@ async function renderFlashcardList(doSync) {
 
   // プレビューエリア
   document.getElementById('fc-preview-area').style.display = 'block';
+  // 方向ボタン初期化
+  const dirEs2jp = document.getElementById('fc-dir-es2jp');
+  const dirJp2es = document.getElementById('fc-dir-jp2es');
+  if (dirEs2jp) dirEs2jp.classList.toggle('accent', _fcDirection === 'es2jp');
+  if (dirJp2es) dirJp2es.classList.toggle('accent', _fcDirection === 'jp2es');
   showFCPreview(_fcPreviewIdx);
 
   container.innerHTML = page.map((f, i) => {
@@ -4250,6 +4172,15 @@ async function renderFlashcardList(doSync) {
   renderPagination('fc-pagination', fcPage, totalPages, p => { fcPage = p; renderFlashcardList(); });
 }
 
+let _fcDirection = 'es2jp'; // 'es2jp' | 'jp2es'
+
+function setFCDirection(dir, btn) {
+  _fcDirection = dir;
+  document.getElementById('fc-dir-es2jp').classList.toggle('accent', dir === 'es2jp');
+  document.getElementById('fc-dir-jp2es').classList.toggle('accent', dir === 'jp2es');
+  showFCPreview(_fcPreviewIdx);
+}
+
 function showFCPreview(idx) {
   const entries = _fcCurrentEntries;
   if (!entries.length) return;
@@ -4263,48 +4194,139 @@ function showFCPreview(idx) {
   const examplesEl = document.getElementById('fc-preview-examples');
   const hint = document.getElementById('fc-preview-hint');
   const numEl = document.getElementById('fc-preview-num');
+  const dictBtnWrap = document.getElementById('fc-dict-btn-wrap');
 
   const f = entries[idx];
-  const hasExamples = f.type === 'phrase' && f.examples && f.examples.length > 0;
-
   card.classList.remove('flipped');
+  if (dictBtnWrap) dictBtnWrap.style.display = 'none';
 
-  if (hasExamples) {
-    // 表面：スペイン語フレーズ（大）
-    // 裏面：日本語意味 ＋ 例文一覧
-    jpEl.innerHTML = `<span style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">💬 フレーズ</span>${escHtml(f.es)}`;
+  // 辞書エントリを取得（豆知識・フォーム表示用）
+  const dictEntry = findDictEntry(f.es);
+
+  if (_fcDirection === 'es2jp') {
+    // 表: ES、裏: JP
+    jpEl.innerHTML = `<span class="fc-front-es">${escHtml(f.es)}</span>`;
     jpEl.style.fontFamily = "'DM Mono', monospace";
     jpEl.style.color = 'var(--accent2)';
-    esEl.textContent = f.jp;
+    esEl.innerHTML = buildFCBackContent(f, dictEntry);
     esEl.style.fontFamily = "'Noto Sans JP', sans-serif";
     esEl.style.color = 'var(--text)';
-    examplesEl.innerHTML = f.examples.map(ex => `
-      <div class="fc-preview-example-item">
-        <div class="fc-preview-example-es">${escHtml(ex.es)}</div>
-        ${ex.jp ? `<div class="fc-preview-example-jp">${escHtml(ex.jp)}</div>` : ''}
-      </div>
-    `).join('');
   } else {
-    // 通常表示（単語、または例文なしフレーズ）
+    // 表: JP、裏: ES
     jpEl.textContent = f.jp;
     jpEl.style.fontFamily = "'Noto Sans JP', sans-serif";
-    jpEl.style.color = '';
-    esEl.textContent = f.es;
+    jpEl.style.color = 'var(--text)';
+    esEl.innerHTML = `<span class="fc-front-es">${escHtml(f.es)}</span>` + buildFCBackExtra(f, dictEntry);
     esEl.style.fontFamily = "'DM Mono', monospace";
-    esEl.style.color = '';
-    examplesEl.innerHTML = '';
+    esEl.style.color = 'var(--accent2)';
   }
 
+  examplesEl.innerHTML = '';
   hint.textContent = 'タップして確認';
   numEl.textContent = (idx + 1) + ' / ' + entries.length;
+}
+
+// 裏面メインコンテンツ（ES→JP の裏）
+function buildFCBackContent(f, dictEntry) {
+  let html = `<strong style="font-size:18px">${escHtml(f.jp)}</strong>`;
+
+  // 名詞フォーム
+  const nf = dictEntry?.nounForms;
+  if (nf && (nf.sgDef || nf.plDef)) {
+    html += buildNounFormsHtml(nf, f.es);
+  }
+  // 形容詞フォーム
+  const af = dictEntry?.adjForms;
+  if (af && (af.fsg || af.mpl)) {
+    html += buildAdjFormsHtml(af);
+  }
+  // 豆知識
+  if (dictEntry?.trivia) {
+    html += `<div style="margin-top:10px;font-size:11px;color:var(--muted);font-family:'Noto Sans JP',sans-serif;background:var(--surface2);border-radius:8px;padding:8px 10px;text-align:left">💡 ${escHtml(dictEntry.trivia)}</div>`;
+  }
+  return html;
+}
+
+// 裏面の追加コンテンツ（JP→ES の裏）
+function buildFCBackExtra(f, dictEntry) {
+  let html = '';
+  const nf = dictEntry?.nounForms;
+  if (nf && (nf.sgDef || nf.plDef)) {
+    html += buildNounFormsHtml(nf, f.es);
+  }
+  const af = dictEntry?.adjForms;
+  if (af && (af.fsg || af.mpl)) {
+    html += buildAdjFormsHtml(af);
+  }
+  if (dictEntry?.trivia) {
+    html += `<div style="margin-top:10px;font-size:11px;color:var(--muted);font-family:'Noto Sans JP',sans-serif;background:var(--surface2);border-radius:8px;padding:8px 10px;text-align:left">💡 ${escHtml(dictEntry.trivia)}</div>`;
+  }
+  return html;
+}
+
+function buildNounFormsHtml(nf, base) {
+  // 定冠詞・不定冠詞の形式を生成（esta/estas/ese/esasなどはesから推定）
+  const pl = nf.plDef ? nf.plDef.replace(/^(el|la|los|las)\s+/, '') : '';
+  const rows = [];
+  if (nf.sgDef)   rows.push({ label: '定冠詞単', form: nf.sgDef });
+  if (nf.plDef)   rows.push({ label: '定冠詞複', form: nf.plDef });
+  if (nf.sgIndef) rows.push({ label: '不定冠詞単', form: nf.sgIndef });
+  if (nf.plIndef) rows.push({ label: '不定冠詞複', form: nf.plIndef });
+  // esta/estas/ese/esas を推定
+  const gender = nf.gender;
+  if (base && gender) {
+    const estaForms = gender === 'm'
+      ? [{ label: 'este', form: `este ${base}` }, { label: 'ese', form: `ese ${base}` }]
+      : [{ label: 'esta', form: `esta ${base}` }, { label: 'esa', form: `esa ${base}` }];
+    if (pl) {
+      const eForms = gender === 'm'
+        ? [{ label: 'estos', form: `estos ${pl}` }, { label: 'esos', form: `esos ${pl}` }]
+        : [{ label: 'estas', form: `estas ${pl}` }, { label: 'esas', form: `esas ${pl}` }];
+      rows.push(...estaForms, ...eForms);
+    } else {
+      rows.push(...estaForms);
+    }
+  }
+  if (!rows.length) return '';
+  const chips = rows.map(r =>
+    `<span style="display:inline-block;background:rgba(61,107,140,0.1);color:var(--accent2);font-family:'DM Mono',monospace;font-size:11px;padding:2px 8px;border-radius:10px;margin:2px">${escHtml(r.form)}</span>`
+  ).join('');
+  return `<div style="margin-top:10px;text-align:center;line-height:2">${chips}</div>`;
+}
+
+function buildAdjFormsHtml(af) {
+  const rows = [];
+  if (af.msg) rows.push(af.msg);
+  if (af.fsg) rows.push(af.fsg);
+  if (af.mpl) rows.push(af.mpl);
+  if (af.fpl) rows.push(af.fpl);
+  if (!rows.length) return '';
+  const chips = rows.map(f =>
+    `<span style="display:inline-block;background:rgba(200,98,42,0.08);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;padding:2px 8px;border-radius:10px;margin:2px">${escHtml(f)}</span>`
+  ).join('');
+  return `<div style="margin-top:10px;text-align:center;line-height:2">${chips}</div>`;
 }
 
 function flipFCPreview() {
   _fcPreviewFlipped = !_fcPreviewFlipped;
   const card = document.getElementById('fc-preview-card');
   const hint = document.getElementById('fc-preview-hint');
+  const dictBtnWrap = document.getElementById('fc-dict-btn-wrap');
   card.classList.toggle('flipped', _fcPreviewFlipped);
   hint.textContent = _fcPreviewFlipped ? '← 戻る' : 'タップして確認';
+
+  // 裏面になったら辞書ボタンを表示（辞書登録があれば）
+  if (dictBtnWrap) {
+    const f = _fcCurrentEntries[_fcPreviewIdx];
+    const hasDictEntry = f && !!findDictEntry(f.es);
+    dictBtnWrap.style.display = (_fcPreviewFlipped && hasDictEntry) ? 'block' : 'none';
+  }
+}
+
+function openDictFromFC() {
+  const f = _fcCurrentEntries[_fcPreviewIdx];
+  if (!f) return;
+  openDictModal(f.es, 'word');
 }
 
 function prevFCCard(dir) {
