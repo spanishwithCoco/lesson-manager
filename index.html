@@ -1355,6 +1355,42 @@ textarea.input-field { resize: vertical; min-height: 70px; }
         <textarea class="input-field" id="dict-trivia" rows="2" placeholder="覚え方のヒントなど"></textarea>
       </div>
 
+      <!-- 名詞格変化（名詞のみ） -->
+      <div id="noun-section" style="display:none">
+        <hr class="divider">
+        <div style="font-size:12px;color:var(--accent);font-family:'DM Mono',monospace;margin-bottom:14px;text-transform:uppercase;letter-spacing:.05em">冠詞つき形式 Formas con artículo</div>
+
+        <!-- 定冠詞 -->
+        <div style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">定冠詞 Artículo definido</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+          <div>
+            <div style="font-size:11px;color:var(--accent2);font-family:'DM Mono',monospace;margin-bottom:4px">単数 Singular</div>
+            <input class="input-field mono" id="noun-sg-def" placeholder="例: la tabla"
+              oninput="" onblur="autoSaveDictEntry(false)">
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--accent2);font-family:'DM Mono',monospace;margin-bottom:4px">複数 Plural</div>
+            <input class="input-field mono" id="noun-pl-def" placeholder="例: las tablas"
+              oninput="" onblur="autoSaveDictEntry(false)">
+          </div>
+        </div>
+
+        <!-- 不定冠詞 -->
+        <div style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">不定冠詞 Artículo indefinido</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px">
+          <div>
+            <div style="font-size:11px;color:var(--accent2);font-family:'DM Mono',monospace;margin-bottom:4px">単数 Singular</div>
+            <input class="input-field mono" id="noun-sg-indef" placeholder="例: una tabla"
+              oninput="" onblur="autoSaveDictEntry(false)">
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--accent2);font-family:'DM Mono',monospace;margin-bottom:4px">複数 Plural</div>
+            <input class="input-field mono" id="noun-pl-indef" placeholder="例: unas tablas"
+              oninput="" onblur="autoSaveDictEntry(false)">
+          </div>
+        </div>
+      </div>
+
       <!-- 活用表（動詞のみ） -->
       <div id="conj-section" style="display:none">
         <hr class="divider">
@@ -1517,6 +1553,7 @@ async function syncFromSupabase() {
         example: r.example || '',
         examples: r.examples || (r.example ? [{ es: r.example, jp: '' }] : []),
         trivia: r.trivia || '',
+        nounForms: r.noun_forms || {},
         conjugation: r.conjugation || {},
         forms: r.forms || [],
         visibility: r.visibility || 'members'
@@ -1584,6 +1621,7 @@ async function pushDict(entry) {
     es: entry.es, jp: entry.jp, pos: entry.pos || '',
     example: entry.example || '', trivia: entry.trivia || '',
     examples: entry.examples || [],
+    noun_forms: entry.nounForms || {},
     conjugation: entry.conjugation || {},
     forms
   });
@@ -3065,6 +3103,14 @@ function openDictModal(term, sourceType) {
   // 活用表
   buildConjTable(existing?.conjugation || {});
   toggleConjSection(existing?.pos === '動詞');
+  toggleNounSection(existing?.pos === '名詞');
+
+  // 名詞フォームを復元
+  const nf = existing?.nounForms || {};
+  document.getElementById('noun-sg-def').value   = nf.sgDef   || '';
+  document.getElementById('noun-pl-def').value   = nf.plDef   || '';
+  document.getElementById('noun-sg-indef').value = nf.sgIndef || '';
+  document.getElementById('noun-pl-indef').value = nf.plIndef || '';
 
   // 自動保存データがあり、同じ単語の場合は上書き復元
   try {
@@ -3093,7 +3139,13 @@ function closeDictModal() {
 function selectPOS(btn) {
   document.querySelectorAll('.pos-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
-  toggleConjSection(btn.dataset.pos === '動詞');
+  const pos = btn.dataset.pos;
+  toggleConjSection(pos === '動詞');
+  toggleNounSection(pos === '名詞');
+}
+
+function toggleNounSection(show) {
+  document.getElementById('noun-section').style.display = show ? 'block' : 'none';
 }
 
 function toggleConjSection(show) {
@@ -3138,6 +3190,15 @@ function collectConjugation() {
     });
   });
   return conj;
+}
+
+function collectNounForms() {
+  return {
+    sgDef:   document.getElementById('noun-sg-def')?.value.trim()   || '',
+    plDef:   document.getElementById('noun-pl-def')?.value.trim()   || '',
+    sgIndef: document.getElementById('noun-sg-indef')?.value.trim() || '',
+    plIndef: document.getElementById('noun-pl-indef')?.value.trim() || '',
+  };
 }
 
 // ── 活用表例文 → フラッシュカード自動生成 ──────────────
@@ -3197,12 +3258,11 @@ async function saveDictEntry() {
 
   if (!es) { toast('スペイン語を入力してください'); return; }
 
-  // 例文配列（空のものを除外）
   const examples = _dictExamples.filter(e => e.es.trim());
-  // 後方互換のため example フィールドも先頭例文から設定
-  const example = examples.length ? examples[0].es : '';
+  const example  = examples.length ? examples[0].es : '';
+  const nounForms = (pos === '名詞') ? collectNounForms() : {};
 
-  const entry = { pos, es, jp, example, examples, trivia };
+  const entry = { pos, es, jp, example, examples, trivia, nounForms };
   if (pos === '動詞') entry.conjugation = collectConjugation();
   entry.forms = extractForms(entry.conjugation || {});
 
@@ -3218,20 +3278,53 @@ async function saveDictEntry() {
     pushVocab('word', es, jp).catch(()=>{});
   }
 
-  // ── 単語自体をフラッシュカードに自動登録 ──────────
+  // ── 単語FCの自動登録（名詞は単数・複数それぞれ別カード） ──
   let wordFCAdded = 0;
-  if (es && jp) {
-    if (!db.flashcards) db.flashcards = [];
+  if (!db.flashcards) db.flashcards = [];
+
+  if (pos === '名詞') {
+    // 名詞：定冠詞単数・定冠詞複数を別カードとして登録（入力があるもののみ）
+    const nounCards = [
+      { esForm: nounForms.sgDef,   label: '単数' },
+      { esForm: nounForms.plDef,   label: '複数' },
+      { esForm: nounForms.sgIndef, label: '単数（不定）' },
+      { esForm: nounForms.plIndef, label: '複数（不定）' },
+    ].filter(c => c.esForm);
+
+    for (const nc of nounCards) {
+      const dup = db.flashcards.find(f => f.es === nc.esForm && f.type === 'word');
+      if (dup) continue;
+      const fc = {
+        id: 'fc_noun_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+        type: 'word', category: '',
+        es: nc.esForm, jp: jp,
+        memo: `[名詞] ${nc.label}`,
+        created: todayStr()
+      };
+      db.flashcards.push(fc);
+      try { await pushFC(fc); } catch(e) {}
+      wordFCAdded++;
+    }
+    // 入力がない場合は見出し語（裸の形）でカード作成
+    if (wordFCAdded === 0 && es && jp) {
+      const dup = db.flashcards.find(f => f.es === es && f.type === 'word');
+      if (!dup) {
+        const fc = { id: 'fc_word_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+          type: 'word', category: '', es, jp, memo: '[名詞]', created: todayStr() };
+        db.flashcards.push(fc);
+        try { await pushFC(fc); } catch(e) {}
+        wordFCAdded = 1;
+      }
+    }
+    saveDB(db);
+  } else if (es && jp) {
+    // 名詞以外：見出し語でカード1枚
     const dupWord = db.flashcards.find(f => f.es === es && (f.type === 'word' || f.type === 'phrase'));
     if (!dupWord) {
       const wordFC = {
         id: 'fc_word_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
-        type: 'word',
-        category: '',
-        es: es,
-        jp: jp,
-        memo: pos ? `[${pos}]` : '',
-        created: todayStr()
+        type: 'word', category: '', es, jp,
+        memo: pos ? `[${pos}]` : '', created: todayStr()
       };
       db.flashcards.push(wordFC);
       try { await pushFC(wordFC); } catch(e) {}
@@ -3274,7 +3367,7 @@ async function saveDictEntry() {
   try {
     await pushDict(entry);
     const parts = [];
-    if (wordFCAdded) parts.push('単語カード1枚');
+    if (wordFCAdded) parts.push(pos === '名詞' ? `名詞カード${wordFCAdded}枚` : '単語カード1枚');
     if (exFCAdded) parts.push(`例文カード${exFCAdded}枚`);
     if (conjFCCount) parts.push(`活用例文${conjFCCount}枚`);
     const fcMsg = parts.length ? `（フラッシュカードに自動登録: ${parts.join('・')}）` : '';
@@ -3307,20 +3400,20 @@ async function autoSaveDictEntry(silent) {
   const jp  = document.getElementById('dict-jp')?.value.trim() || '';
   const trivia = document.getElementById('dict-trivia')?.value.trim() || '';
   const conj = (pos === '動詞' && typeof collectConjugation === 'function') ? collectConjugation() : {};
+  const nounForms = (pos === '名詞') ? collectNounForms() : {};
 
-  // 常にlocalStorageに現在の入力状態を保持（画面を離れても復元可能）
+  // 常にlocalStorageに現在の入力状態を保持
   const snapshot = {
     term: _dictModalTerm, sourceType: _dictModalSourceType,
-    es, jp, examples: _dictExamples, trivia, pos, conj
+    es, jp, examples: _dictExamples, trivia, pos, conj, nounForms
   };
   try { localStorage.setItem(DRAFT_DICT_KEY, JSON.stringify(snapshot)); } catch(e) {}
 
-  // スペイン語が未入力の場合はDB保存しない
   if (!es) return;
 
   const examples = _dictExamples.filter(e => e.es.trim());
   const example  = examples.length ? examples[0].es : '';
-  const entry = { pos, es, jp, example, examples, trivia, conjugation: conj };
+  const entry = { pos, es, jp, example, examples, trivia, conjugation: conj, nounForms };
   entry.forms = typeof extractForms === 'function' ? extractForms(conj) : [];
 
   // localDBに保存
@@ -3330,7 +3423,7 @@ async function autoSaveDictEntry(silent) {
   if (jp) db.words[es] = jp;
   saveDB(db);
 
-  // Supabaseにも非同期で反映（失敗してもUI影響なし）
+  // Supabaseにも非同期で反映
   try {
     await pushDict(entry);
     if (jp) await pushVocab('word', es, jp);
@@ -3363,7 +3456,14 @@ function restoreDictDraft(draft) {
   if (draft.pos) {
     document.querySelectorAll('.pos-btn').forEach(b => b.classList.remove('selected'));
     const btn = document.querySelector(`.pos-btn[data-pos="${draft.pos}"]`);
-    if (btn) { btn.classList.add('selected'); toggleConjSection(draft.pos === '動詞'); }
+    if (btn) { btn.classList.add('selected'); toggleConjSection(draft.pos === '動詞'); toggleNounSection(draft.pos === '名詞'); }
+  }
+  if (draft.nounForms) {
+    const nf = draft.nounForms;
+    if (document.getElementById('noun-sg-def'))   document.getElementById('noun-sg-def').value   = nf.sgDef   || '';
+    if (document.getElementById('noun-pl-def'))   document.getElementById('noun-pl-def').value   = nf.plDef   || '';
+    if (document.getElementById('noun-sg-indef')) document.getElementById('noun-sg-indef').value = nf.sgIndef || '';
+    if (document.getElementById('noun-pl-indef')) document.getElementById('noun-pl-indef').value = nf.plIndef || '';
   }
   if (draft.conj && Object.keys(draft.conj).length) buildConjTable(draft.conj);
 }
@@ -3400,6 +3500,10 @@ function clearFCDDraft() {
 function initAutoDraftListeners() {
   // 辞書モーダル：入力欄を離れるたびに完全自動保存
   ['dict-es','dict-jp','dict-trivia'].forEach(id => {
+    document.getElementById(id)?.addEventListener('blur', () => autoSaveDictEntry(false));
+  });
+  // 名詞フォーム入力欄（onblur属性で対応済みだが念のため）
+  ['noun-sg-def','noun-pl-def','noun-sg-indef','noun-pl-indef'].forEach(id => {
     document.getElementById(id)?.addEventListener('blur', () => autoSaveDictEntry(false));
   });
   // 活用表は動的生成なのでイベント委任
@@ -3554,6 +3658,18 @@ async function renderDictList(doSync) {
 
   container.innerHTML = page.map(([term, d]) => {
     const vis = d.visibility || 'members';
+    const nf = d.nounForms || {};
+    const hasNounForms = d.pos === '名詞' && (nf.sgDef || nf.plDef || nf.sgIndef || nf.plIndef);
+
+    // 名詞フォーム表示HTML
+    const nounFormsHtml = hasNounForms ? `
+      <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px 14px">
+        ${nf.sgDef   ? `<span style="font-size:12px"><span style="color:var(--muted);font-size:10px;font-family:'DM Mono',monospace">定単</span> <span style="font-family:'DM Mono',monospace;color:var(--accent2)">${escHtml(nf.sgDef)}</span></span>` : ''}
+        ${nf.plDef   ? `<span style="font-size:12px"><span style="color:var(--muted);font-size:10px;font-family:'DM Mono',monospace">定複</span> <span style="font-family:'DM Mono',monospace;color:var(--accent2)">${escHtml(nf.plDef)}</span></span>` : ''}
+        ${nf.sgIndef ? `<span style="font-size:12px"><span style="color:var(--muted);font-size:10px;font-family:'DM Mono',monospace">不定単</span> <span style="font-family:'DM Mono',monospace;color:var(--accent)">${escHtml(nf.sgIndef)}</span></span>` : ''}
+        ${nf.plIndef ? `<span style="font-size:12px"><span style="color:var(--muted);font-size:10px;font-family:'DM Mono',monospace">不定複</span> <span style="font-family:'DM Mono',monospace;color:var(--accent)">${escHtml(nf.plIndef)}</span></span>` : ''}
+      </div>` : '';
+
     return `
     <div class="dict-item">
       <div class="dict-item-top">
@@ -3568,7 +3684,8 @@ async function renderDictList(doSync) {
         <button class="btn-small" onclick="openDictModal('${term.replace(/'/g,"\\'")}')">編集</button>
         <button class="btn-small" style="color:var(--red);border-color:var(--red)" onclick="deleteDictEntry('${term.replace(/'/g,"\\'")}')">削除</button>
       </div>
-      ${d.example ? `<div style="font-size:12px;color:var(--muted);margin-top:6px">例: ${escHtml(d.example)}</div>` : ''}
+      ${nounFormsHtml}
+      ${!hasNounForms && d.example ? `<div style="font-size:12px;color:var(--muted);margin-top:6px">例: ${escHtml(d.example)}</div>` : ''}
       ${d.conjugation && Object.keys(d.conjugation).length ? `<div style="font-size:11px;color:var(--accent2);margin-top:4px">活用表あり</div>` : ''}
     </div>`;
   }).join('');
