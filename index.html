@@ -2785,6 +2785,7 @@ return;
 }
 
 container.innerHTML = Object.entries(months).sort((a,b)=>b[0].localeCompare(a[0])).map(([month, ls]) => `<div class="month-header">${month}</div> ${ls.map(l => { const vis = l.visibility || 'private'; return`
+
 <div class="lesson-list-item">
 <div class="lesson-list-info">
 <div class="lesson-list-name">${escHtml(l.name)}</div>
@@ -3039,6 +3040,7 @@ document.getElementById(‘conj-section’).style.display = show ? ‘block’ :
 function buildConjTable(savedConj) {
 const container = document.getElementById(‘conj-tenses’);
 container.innerHTML = TENSES.map(t => `<div class="tense-header">${t.label}</div> <div class="conj-table-wrap"> <table class="conj-table"> <thead><tr> <th>代名詞</th><th>活用</th><th>例文</th> </tr></thead> <tbody> ${PRONOUNS.map(pr => { const safeKey = t.key + '_' + pr.replace(/[^a-z]/gi,''); const saved = savedConj[safeKey] || {}; return`<tr>
+
 <td class="conj-pron">${pr}</td>
 <td><input class="conj-input" id="conj-form-${safeKey}" value="${escHtml(saved.form||'')}" placeholder="活用形"></td>
 <td><input class="conj-input" id="conj-ex-${safeKey}" value="${escHtml(saved.example||'')}" placeholder="例文"></td>
@@ -3486,7 +3488,7 @@ return (text || ‘’)
 // ═══════════════════════════════════════════════
 function generateLessonHTML(name) {
 const db = getDB();
-const safeName = name.replace(/[’”\`]/g, ‘’);
+const safeName = name.replace(/[’”`]/g, ‘’);
 const storageKey = ‘lesson_’ + safeName.replace(/\s+/g,’_’);
 
 // Build per-audio HTML sections
@@ -3582,23 +3584,24 @@ const js = ` const STORAGE_KEY = 'lesson_` + storageKey + `'; let ldata = JSON.p
 
 // ── Assemble full HTML ──
 return ‘<!DOCTYPE html>\n’
-+ ‘<html lang="ja">\n<head>\n’
-+ ‘<meta charset="UTF-8">\n’
-+ ‘<meta name="viewport" content="width=device-width, initial-scale=1.0">\n’
-+ ‘<title>’ + name + ‘</title>\n’
-+ ‘<style>\n’ + css + ‘\n</style>\n’
-+ ‘</head>\n<body>\n’
-+ ‘<nav class="progress-nav"><div class="progress-steps">’
-+ ‘<button class="step-btn active" onclick="goTo(1)" id="step1-btn">① Escuchar</button>’
-+ ‘<button class="step-btn" onclick="goTo(2)" id="step2-btn">② Dictado</button>’
-+ ‘<button class="step-btn" onclick="goTo(3)" id="step3-btn">③ Entender</button>’
-+ ‘<button class="step-btn" onclick="goTo(4)" id="step4-btn">④ Reconstruir</button>’
-+ ‘<button class="step-btn" onclick="goTo(5)" id="step5-btn">⑤ Imitar</button>’
-+ ‘<button class="theme-toggle-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="ダーク/ライト切替">🌙</button>’
-+ ‘</div></nav>\n’
-+ ‘<div class="container">\n’
-+ ‘<div class="lesson-title">’ + name + ‘</div>\n’
-+ ‘<div class="lesson-sub">スペイン語レッスン</div>\n’
+
+- ‘<html lang="ja">\n<head>\n’
+- ‘<meta charset="UTF-8">\n’
+- ‘<meta name="viewport" content="width=device-width, initial-scale=1.0">\n’
+- ‘<title>’ + name + ‘</title>\n’
+- ‘<style>\n’ + css + ‘\n</style>\n’
+- ‘</head>\n<body>\n’
+- ‘<nav class="progress-nav"><div class="progress-steps">’
+- ‘<button class="step-btn active" onclick="goTo(1)" id="step1-btn">① Escuchar</button>’
+- ‘<button class="step-btn" onclick="goTo(2)" id="step2-btn">② Dictado</button>’
+- ‘<button class="step-btn" onclick="goTo(3)" id="step3-btn">③ Entender</button>’
+- ‘<button class="step-btn" onclick="goTo(4)" id="step4-btn">④ Reconstruir</button>’
+- ‘<button class="step-btn" onclick="goTo(5)" id="step5-btn">⑤ Imitar</button>’
+- ‘<button class="theme-toggle-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="ダーク/ライト切替">🌙</button>’
+- ‘</div></nav>\n’
+- ‘<div class="container">\n’
+- ‘<div class="lesson-title">’ + name + ‘</div>\n’
+- ‘<div class="lesson-sub">スペイン語レッスン</div>\n’
 
 ```
 // Page 1
@@ -3800,10 +3803,10 @@ if (!matched) { result += escHtml(plain[j]); j++; }
 return result;
 }
 function escHtml(s) {
-return String(s||’’).replace(/&/g,’&’).replace(/</g,’<’).replace(/>/g,’>’).replace(/”/g,’"’).replace(/’/g,’'’);
+return String(s||’’).replace(/&/g,’&’).replace(/</g,’<’).replace(/>/g,’>’).replace(/”/g,’”’).replace(/’/g,’’’);
 }
 function escRegex(s) {
-return s.replace(/[.*+?^${}()|[]\]/g,’\$&’);
+return s.replace(/[.*+?^${}()|[]]/g,’$&’);
 }
 function todayStr() {
 const d = new Date();
