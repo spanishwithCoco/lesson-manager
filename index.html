@@ -1358,20 +1358,35 @@ textarea.input-field { resize: vertical; min-height: 70px; }
       <!-- 名詞格変化（名詞のみ） -->
       <div id="noun-section" style="display:none">
         <hr class="divider">
-        <div style="font-size:12px;color:var(--accent);font-family:'DM Mono',monospace;margin-bottom:14px;text-transform:uppercase;letter-spacing:.05em">冠詞つき形式 Formas con artículo</div>
+        <div style="font-size:12px;color:var(--accent);font-family:'DM Mono',monospace;margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em">冠詞つき形式 Formas con artículo</div>
+
+        <!-- 性別セレクター -->
+        <div style="margin-bottom:14px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:7px">性別を選ぶと自動で入力されます（編集可）</div>
+          <div style="display:flex;gap:8px">
+            <button class="noun-gender-btn" id="gender-btn-m" onclick="selectNounGender('m')"
+              style="flex:1;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);font-family:'Noto Sans JP',sans-serif;font-size:13px;color:var(--muted);cursor:pointer;transition:all .18s">
+              男性名詞<br><span style="font-size:10px;font-family:'DM Mono',monospace;opacity:.7">Masculino · el / los</span>
+            </button>
+            <button class="noun-gender-btn" id="gender-btn-f" onclick="selectNounGender('f')"
+              style="flex:1;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);font-family:'Noto Sans JP',sans-serif;font-size:13px;color:var(--muted);cursor:pointer;transition:all .18s">
+              女性名詞<br><span style="font-size:10px;font-family:'DM Mono',monospace;opacity:.7">Femenino · la / las</span>
+            </button>
+          </div>
+        </div>
 
         <!-- 定冠詞 -->
         <div style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">定冠詞 Artículo definido</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
           <div>
             <div style="font-size:11px;color:var(--accent2);font-family:'DM Mono',monospace;margin-bottom:4px">単数 Singular</div>
             <input class="input-field mono" id="noun-sg-def" placeholder="例: la tabla"
-              oninput="" onblur="autoSaveDictEntry(false)">
+              onblur="autoSaveDictEntry(false)">
           </div>
           <div>
             <div style="font-size:11px;color:var(--accent2);font-family:'DM Mono',monospace;margin-bottom:4px">複数 Plural</div>
             <input class="input-field mono" id="noun-pl-def" placeholder="例: las tablas"
-              oninput="" onblur="autoSaveDictEntry(false)">
+              onblur="autoSaveDictEntry(false)">
           </div>
         </div>
 
@@ -1381,12 +1396,12 @@ textarea.input-field { resize: vertical; min-height: 70px; }
           <div>
             <div style="font-size:11px;color:var(--accent2);font-family:'DM Mono',monospace;margin-bottom:4px">単数 Singular</div>
             <input class="input-field mono" id="noun-sg-indef" placeholder="例: una tabla"
-              oninput="" onblur="autoSaveDictEntry(false)">
+              onblur="autoSaveDictEntry(false)">
           </div>
           <div>
             <div style="font-size:11px;color:var(--accent2);font-family:'DM Mono',monospace;margin-bottom:4px">複数 Plural</div>
             <input class="input-field mono" id="noun-pl-indef" placeholder="例: unas tablas"
-              oninput="" onblur="autoSaveDictEntry(false)">
+              onblur="autoSaveDictEntry(false)">
           </div>
         </div>
       </div>
@@ -3107,10 +3122,25 @@ function openDictModal(term, sourceType) {
 
   // 名詞フォームを復元
   const nf = existing?.nounForms || {};
+  _nounGender = nf.gender || '';
   document.getElementById('noun-sg-def').value   = nf.sgDef   || '';
   document.getElementById('noun-pl-def').value   = nf.plDef   || '';
   document.getElementById('noun-sg-indef').value = nf.sgIndef || '';
   document.getElementById('noun-pl-indef').value = nf.plIndef || '';
+  // 性別ボタンの見た目を復元（selectNounGenderを使わず視覚だけ更新）
+  document.querySelectorAll('.noun-gender-btn').forEach(b => {
+    b.style.background = 'var(--surface2)'; b.style.color = 'var(--muted)';
+    b.style.borderColor = 'var(--border)'; b.style.fontWeight = '';
+  });
+  if (_nounGender) {
+    const ab = document.getElementById('gender-btn-' + _nounGender);
+    if (ab) {
+      ab.style.background  = _nounGender === 'm' ? 'rgba(61,107,140,0.15)' : 'rgba(200,98,42,0.12)';
+      ab.style.color       = _nounGender === 'm' ? 'var(--accent2)' : 'var(--accent)';
+      ab.style.borderColor = _nounGender === 'm' ? 'var(--accent2)' : 'var(--accent)';
+      ab.style.fontWeight  = '700';
+    }
+  }
 
   // 自動保存データがあり、同じ単語の場合は上書き復元
   try {
@@ -3146,6 +3176,57 @@ function selectPOS(btn) {
 
 function toggleNounSection(show) {
   document.getElementById('noun-section').style.display = show ? 'block' : 'none';
+  if (!show) _nounGender = '';
+}
+
+let _nounGender = ''; // 'm' | 'f' | ''
+
+function selectNounGender(gender) {
+  _nounGender = gender;
+
+  // ボタンのアクティブスタイルを切り替え
+  document.querySelectorAll('.noun-gender-btn').forEach(b => {
+    b.style.background    = 'var(--surface2)';
+    b.style.color         = 'var(--muted)';
+    b.style.borderColor   = 'var(--border)';
+    b.style.fontWeight    = '';
+  });
+  const activeBtn = document.getElementById('gender-btn-' + gender);
+  if (activeBtn) {
+    activeBtn.style.background  = gender === 'm' ? 'rgba(61,107,140,0.15)' : 'rgba(200,98,42,0.12)';
+    activeBtn.style.color       = gender === 'm' ? 'var(--accent2)' : 'var(--accent)';
+    activeBtn.style.borderColor = gender === 'm' ? 'var(--accent2)' : 'var(--accent)';
+    activeBtn.style.fontWeight  = '700';
+  }
+
+  // 見出し語（スペイン語欄）を取得して冠詞を自動入力
+  const base = document.getElementById('dict-es')?.value.trim() || '';
+  if (!base) return; // 見出し語が未入力なら冠詞だけ入れない
+
+  // 複数形を推定（簡易ルール: 母音終わり→+s, 子音終わり→+es, -z終わり→-ces）
+  function guessPl(word) {
+    if (!word) return '';
+    if (/[aeiouáéíóú]$/i.test(word)) return word + 's';
+    if (/z$/i.test(word)) return word.slice(0, -1) + 'ces';
+    return word + 'es';
+  }
+  const pl = guessPl(base);
+
+  // 冠詞マップ
+  const art = gender === 'm'
+    ? { sgDef: 'el',  plDef: 'los', sgIndef: 'un',  plIndef: 'unos' }
+    : { sgDef: 'la',  plDef: 'las', sgIndef: 'una', plIndef: 'unas' };
+
+  // 既入力を上書き（手動で入力済みの場合は確認なしで上書き：ユーザーが性別ボタンを押した = 意図的な操作）
+  const sgDefEl   = document.getElementById('noun-sg-def');
+  const plDefEl   = document.getElementById('noun-pl-def');
+  const sgIndefEl = document.getElementById('noun-sg-indef');
+  const plIndefEl = document.getElementById('noun-pl-indef');
+
+  if (sgDefEl)   sgDefEl.value   = `${art.sgDef} ${base}`;
+  if (plDefEl)   plDefEl.value   = `${art.plDef} ${pl}`;
+  if (sgIndefEl) sgIndefEl.value = `${art.sgIndef} ${base}`;
+  if (plIndefEl) plIndefEl.value = `${art.plIndef} ${pl}`;
 }
 
 function toggleConjSection(show) {
@@ -3194,6 +3275,7 @@ function collectConjugation() {
 
 function collectNounForms() {
   return {
+    gender:  _nounGender,
     sgDef:   document.getElementById('noun-sg-def')?.value.trim()   || '',
     plDef:   document.getElementById('noun-pl-def')?.value.trim()   || '',
     sgIndef: document.getElementById('noun-sg-indef')?.value.trim() || '',
@@ -3460,10 +3542,25 @@ function restoreDictDraft(draft) {
   }
   if (draft.nounForms) {
     const nf = draft.nounForms;
+    _nounGender = nf.gender || '';
     if (document.getElementById('noun-sg-def'))   document.getElementById('noun-sg-def').value   = nf.sgDef   || '';
     if (document.getElementById('noun-pl-def'))   document.getElementById('noun-pl-def').value   = nf.plDef   || '';
     if (document.getElementById('noun-sg-indef')) document.getElementById('noun-sg-indef').value = nf.sgIndef || '';
     if (document.getElementById('noun-pl-indef')) document.getElementById('noun-pl-indef').value = nf.plIndef || '';
+    // ボタン外観を復元
+    document.querySelectorAll('.noun-gender-btn').forEach(b => {
+      b.style.background = 'var(--surface2)'; b.style.color = 'var(--muted)';
+      b.style.borderColor = 'var(--border)'; b.style.fontWeight = '';
+    });
+    if (_nounGender) {
+      const ab = document.getElementById('gender-btn-' + _nounGender);
+      if (ab) {
+        ab.style.background  = _nounGender === 'm' ? 'rgba(61,107,140,0.15)' : 'rgba(200,98,42,0.12)';
+        ab.style.color       = _nounGender === 'm' ? 'var(--accent2)' : 'var(--accent)';
+        ab.style.borderColor = _nounGender === 'm' ? 'var(--accent2)' : 'var(--accent)';
+        ab.style.fontWeight  = '700';
+      }
+    }
   }
   if (draft.conj && Object.keys(draft.conj).length) buildConjTable(draft.conj);
 }
@@ -3660,10 +3757,14 @@ async function renderDictList(doSync) {
     const vis = d.visibility || 'members';
     const nf = d.nounForms || {};
     const hasNounForms = d.pos === '名詞' && (nf.sgDef || nf.plDef || nf.sgIndef || nf.plIndef);
+    const genderLabel = nf.gender === 'm' ? '男性名詞' : nf.gender === 'f' ? '女性名詞' : '';
+    const genderColor = nf.gender === 'm' ? 'var(--accent2)' : 'var(--accent)';
+    const genderBg    = nf.gender === 'm' ? 'rgba(61,107,140,0.1)' : 'rgba(200,98,42,0.1)';
 
     // 名詞フォーム表示HTML
     const nounFormsHtml = hasNounForms ? `
-      <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px 14px">
+      <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center">
+        ${genderLabel ? `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${genderBg};color:${genderColor};font-family:'DM Mono',monospace">${genderLabel}</span>` : ''}
         ${nf.sgDef   ? `<span style="font-size:12px"><span style="color:var(--muted);font-size:10px;font-family:'DM Mono',monospace">定単</span> <span style="font-family:'DM Mono',monospace;color:var(--accent2)">${escHtml(nf.sgDef)}</span></span>` : ''}
         ${nf.plDef   ? `<span style="font-size:12px"><span style="color:var(--muted);font-size:10px;font-family:'DM Mono',monospace">定複</span> <span style="font-family:'DM Mono',monospace;color:var(--accent2)">${escHtml(nf.plDef)}</span></span>` : ''}
         ${nf.sgIndef ? `<span style="font-size:12px"><span style="color:var(--muted);font-size:10px;font-family:'DM Mono',monospace">不定単</span> <span style="font-family:'DM Mono',monospace;color:var(--accent)">${escHtml(nf.sgIndef)}</span></span>` : ''}
