@@ -3005,13 +3005,13 @@ function renderDictExamples() {
         <input class="input-field" style="font-size:13px;padding:8px 10px" placeholder="例文（スペイン語）"
           value="${escHtml(ex.es)}"
           oninput="updateDictExample(${i},'es',this.value)"
-          onblur="saveDictDraft(true)">
+          onblur="autoSaveDictEntry(false)">
         <button class="btn-small" style="color:var(--red);border-color:var(--red);flex-shrink:0" onclick="removeDictExample(${i})">✕</button>
       </div>
       <input class="input-field" style="font-size:13px;padding:8px 10px" placeholder="例文の日本語訳（任意）"
         value="${escHtml(ex.jp)}"
         oninput="updateDictExample(${i},'jp',this.value)"
-        onblur="saveDictDraft(true)">
+        onblur="autoSaveDictEntry(false)">
     </div>
   `).join('');
 }
@@ -3066,9 +3066,9 @@ function openDictModal(term, sourceType) {
   buildConjTable(existing?.conjugation || {});
   toggleConjSection(existing?.pos === '動詞');
 
-  // 下書きがあり、同じ単語の場合は上書き復元
+  // 自動保存データがあり、同じ単語の場合は上書き復元
   try {
-    const raw = sessionStorage.getItem(DRAFT_DICT_KEY);
+    const raw = localStorage.getItem(DRAFT_DICT_KEY);
     if (raw) {
       const draft = JSON.parse(raw);
       if (draft.term === term) {
@@ -3115,9 +3115,9 @@ function buildConjTable(savedConj) {
             const saved = savedConj[safeKey] || {};
             return `<tr>
               <td class="conj-pron">${pr}</td>
-              <td><input class="conj-input" id="conj-form-${safeKey}" value="${escHtml(saved.form||'')}" placeholder="活用形" onblur="saveDictDraft()"></td>
-              <td><input class="conj-input" id="conj-ex-${safeKey}" value="${escHtml(saved.example||'')}" placeholder="例文" onblur="saveDictDraft()"></td>
-              <td><input class="conj-input jp-input" id="conj-jp-${safeKey}" value="${escHtml(saved.meaning||'')}" placeholder="日本語の意味" onblur="saveDictDraft()"></td>
+              <td><input class="conj-input" id="conj-form-${safeKey}" value="${escHtml(saved.form||'')}" placeholder="活用形" onblur="autoSaveDictEntry(false)"></td>
+              <td><input class="conj-input" id="conj-ex-${safeKey}" value="${escHtml(saved.example||'')}" placeholder="例文" onblur="autoSaveDictEntry(false)"></td>
+              <td><input class="conj-input jp-input" id="conj-jp-${safeKey}" value="${escHtml(saved.meaning||'')}" placeholder="日本語の意味" onblur="autoSaveDictEntry(false)"></td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -3296,28 +3296,56 @@ async function saveDictEntry() {
   }
 }
 
-// ── 自動下書き保存 ────────────────────────────────
-const DRAFT_DICT_KEY = 'draft_dict_modal';
+// ── 辞書モーダル：入力欄を離れたタイミングで完全自動保存 ────
+const DRAFT_DICT_KEY = 'draft_dict_modal'; // 後方互換キー名を維持
 const DRAFT_FC_KEY   = 'draft_fc_modal';
 const DRAFT_FCD_KEY  = 'draft_fcd_modal';
 
-function saveDictDraft(silent) {
+async function autoSaveDictEntry(silent) {
   const pos = document.querySelector('.pos-btn.selected')?.dataset.pos || '';
-  const conj = typeof collectConjugation === 'function' ? collectConjugation() : {};
-  const draft = {
+  const es  = document.getElementById('dict-es')?.value.trim() || '';
+  const jp  = document.getElementById('dict-jp')?.value.trim() || '';
+  const trivia = document.getElementById('dict-trivia')?.value.trim() || '';
+  const conj = (pos === '動詞' && typeof collectConjugation === 'function') ? collectConjugation() : {};
+
+  // 常にlocalStorageに現在の入力状態を保持（画面を離れても復元可能）
+  const snapshot = {
     term: _dictModalTerm, sourceType: _dictModalSourceType,
-    es: document.getElementById('dict-es')?.value || '',
-    jp: document.getElementById('dict-jp')?.value || '',
-    examples: _dictExamples,
-    trivia: document.getElementById('dict-trivia')?.value || '',
-    pos, conj
+    es, jp, examples: _dictExamples, trivia, pos, conj
   };
-  try { sessionStorage.setItem(DRAFT_DICT_KEY, JSON.stringify(draft)); } catch(e) {}
-  if (!silent) toast('下書き保存しました', 1400);
+  try { localStorage.setItem(DRAFT_DICT_KEY, JSON.stringify(snapshot)); } catch(e) {}
+
+  // スペイン語が未入力の場合はDB保存しない
+  if (!es) return;
+
+  const examples = _dictExamples.filter(e => e.es.trim());
+  const example  = examples.length ? examples[0].es : '';
+  const entry = { pos, es, jp, example, examples, trivia, conjugation: conj };
+  entry.forms = typeof extractForms === 'function' ? extractForms(conj) : [];
+
+  // localDBに保存
+  const db = getDB();
+  if (!db.dict) db.dict = {};
+  db.dict[es] = { ...(db.dict[es] || {}), ...entry };
+  if (jp) db.words[es] = jp;
+  saveDB(db);
+
+  // Supabaseにも非同期で反映（失敗してもUI影響なし）
+  try {
+    await pushDict(entry);
+    if (jp) await pushVocab('word', es, jp);
+    if (!silent) toast('自動保存しました ✓', 1400);
+  } catch(e) {
+    if (!silent) toast('ローカルに自動保存しました', 1400);
+    console.warn('auto-save dict error:', e);
+  }
 }
 
+// 後方互換のためエイリアスを残す（他箇所から silent 呼び出しされている場合に備え）
+function saveDictDraft(silent) { autoSaveDictEntry(true); }
+
 function clearDictDraft() {
-  try { sessionStorage.removeItem(DRAFT_DICT_KEY); } catch(e) {}
+  try { localStorage.removeItem(DRAFT_DICT_KEY); } catch(e) {}
 }
 
 function restoreDictDraft(draft) {
@@ -3370,14 +3398,14 @@ function clearFCDDraft() {
 
 // blur自動保存の初期化（DOMContentLoaded後に呼ぶ）
 function initAutoDraftListeners() {
-  // 辞書モーダルの入力欄
+  // 辞書モーダル：入力欄を離れるたびに完全自動保存
   ['dict-es','dict-jp','dict-trivia'].forEach(id => {
-    document.getElementById(id)?.addEventListener('blur', saveDictDraft);
+    document.getElementById(id)?.addEventListener('blur', () => autoSaveDictEntry(false));
   });
   // 活用表は動的生成なのでイベント委任
-  document.getElementById('conj-tenses')?.addEventListener('blur', saveDictDraft, true);
+  document.getElementById('conj-tenses')?.addEventListener('blur', () => autoSaveDictEntry(false), true);
 
-  // FCモーダルの入力欄
+  // FCモーダルの入力欄（こちらは従来どおりlocalStorageに状態保持のみ）
   ['fc-jp','fc-es-input','fc-memo'].forEach(id => {
     document.getElementById(id)?.addEventListener('blur', saveFCDraft);
   });
