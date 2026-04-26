@@ -1701,15 +1701,41 @@ function findDictEntry(word) {
   const dict = db.dict || {};
   const w = (word || '').toLowerCase().trim();
   if (!w) return null;
+
+  // 1) 見出し語と完全一致
   for (const [es, entry] of Object.entries(dict)) {
     if (es.toLowerCase() === w) return entry;
   }
+
+  // 2) 動詞活用形リスト
   for (const [es, entry] of Object.entries(dict)) {
     const forms = entry.forms || extractForms(entry.conjugation || {});
-    // 形容詞フォームも照合
-    const adjForms = entry.adjForms ? Object.values(entry.adjForms).filter(f => f) : [];
-    if (forms.some(f => f === w) || adjForms.some(f => f.toLowerCase() === w)) return entry;
+    if (forms.some(f => f === w)) return entry;
   }
+
+  // 3) 名詞の冠詞付き形式から語幹を抽出して照合
+  //    "la tabla" → "tabla", "las tablas" → "tablas" → さらにエントリのnounFormsと照合
+  for (const [es, entry] of Object.entries(dict)) {
+    const nf = entry.nounForms || {};
+    const nounVariants = [nf.sgDef, nf.plDef, nf.sgIndef, nf.plIndef].filter(Boolean);
+    // フォームそのものと一致、または冠詞を除いた語幹が一致
+    for (const form of nounVariants) {
+      const formLow = form.toLowerCase();
+      // フォーム全体と一致（例: "la tabla"）
+      if (formLow === w) return entry;
+      // 冠詞を除いた部分と一致（例: "tabla", "tablas"）
+      const stem = formLow.replace(/^(el|la|los|las|un|una|unos|unas)\s+/, '');
+      if (stem === w) return entry;
+    }
+  }
+
+  // 4) 形容詞変化形と照合
+  for (const [es, entry] of Object.entries(dict)) {
+    const af = entry.adjForms || {};
+    const adjVariants = [af.msg, af.fsg, af.mpl, af.fpl].filter(Boolean);
+    if (adjVariants.some(f => f.toLowerCase() === w)) return entry;
+  }
+
   return null;
 }
 
@@ -3494,6 +3520,18 @@ async function saveDictEntry() {
       }
     }
     saveDB(db);
+    // 名詞：見出し語そのものも必ずカード登録（冠詞付きとは別に1枚）
+    if (es && jp) {
+      const dupBase = db.flashcards.find(f => f.es === es && f.type === 'word');
+      if (!dupBase) {
+        const fc = { id: 'fc_word_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+          type: 'word', category: '', es, jp, memo: '[名詞] 見出し語', created: todayStr() };
+        db.flashcards.push(fc);
+        try { await pushFC(fc); } catch(e) {}
+        wordFCAdded++;
+        saveDB(db);
+      }
+    }
   } else if (pos === '形容詞') {
     // 形容詞：男性単数・女性単数・男性複数・女性複数をセットで登録
     const adjCards = [
@@ -3529,6 +3567,18 @@ async function saveDictEntry() {
       }
     }
     saveDB(db);
+    // 形容詞：見出し語そのものも必ずカード登録（変化形とは別に1枚）
+    if (es && jp) {
+      const dupBase = db.flashcards.find(f => f.es === es && f.type === 'word');
+      if (!dupBase) {
+        const fc = { id: 'fc_word_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+          type: 'word', category: '', es, jp, memo: '[形容詞] 見出し語', created: todayStr() };
+        db.flashcards.push(fc);
+        try { await pushFC(fc); } catch(e) {}
+        wordFCAdded++;
+        saveDB(db);
+      }
+    }
   } else if (es && jp) {
     // 名詞以外：見出し語でカード1枚
     const dupWord = db.flashcards.find(f => f.es === es && (f.type === 'word' || f.type === 'phrase'));
@@ -3579,7 +3629,11 @@ async function saveDictEntry() {
   try {
     await pushDict(entry);
     const parts = [];
-    if (wordFCAdded) parts.push(pos === '名詞' ? `名詞カード${wordFCAdded}枚` : pos === '形容詞' ? `形容詞カード${wordFCAdded}枚` : '単語カード1枚');
+    if (wordFCAdded) parts.push(
+      pos === '名詞'   ? `名詞カード${wordFCAdded}枚` :
+      pos === '形容詞' ? `形容詞カード${wordFCAdded}枚` :
+                         `単語カード${wordFCAdded}枚`
+    );
     if (exFCAdded) parts.push(`例文カード${exFCAdded}枚`);
     if (conjFCCount) parts.push(`活用例文${conjFCCount}枚`);
     const fcMsg = parts.length ? `（フラッシュカードに自動登録: ${parts.join('・')}）` : '';
