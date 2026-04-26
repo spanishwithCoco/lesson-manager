@@ -1018,6 +1018,17 @@ textarea.input-field { resize: vertical; min-height: 70px; }
 .fc-preview-card.flipped .fc-preview-jp { color: var(--muted); font-size: 13px; }
 .fc-preview-card.flipped .fc-preview-es { display: block; font-size: 18px; }
 .fc-preview-hint { font-size: 11px; color: var(--muted); }
+.fc-preview-examples { display: none; flex-direction: column; gap: 6px; width: 100%; margin-top: 4px; }
+.fc-preview-card.flipped .fc-preview-examples { display: flex; }
+.fc-preview-example-item {
+  background: rgba(0,0,0,0.04); border-radius: 8px; padding: 7px 12px;
+  font-size: 12px; text-align: left;
+}
+.fc-preview-example-es { font-family: 'DM Mono', monospace; color: var(--accent2); font-size: 12px; }
+.fc-preview-example-jp { color: var(--muted); font-size: 11px; margin-top: 2px; }
+/* 表面（未フリップ）にもスペイン語フレーズを大きく、例文ESは小さく */
+.fc-front-es { font-size: 22px; color: var(--accent2); font-family: 'DM Mono', monospace; }
+.fc-front-example-es { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 2px; }
 
 /* レッスン登録単語・フレーズ一覧（四つ目の新画面） */
 #screen-lesson-vocab .page-header,
@@ -1219,6 +1230,7 @@ textarea.input-field { resize: vertical; min-height: 70px; }
         <div class="fc-preview-card" id="fc-preview-card" onclick="flipFCPreview()">
           <div class="fc-preview-jp" id="fc-preview-jp">日本語</div>
           <div class="fc-preview-es" id="fc-preview-es">Español</div>
+          <div class="fc-preview-examples" id="fc-preview-examples"></div>
           <div class="fc-preview-hint" id="fc-preview-hint">タップして確認</div>
         </div>
         <div style="display:flex;gap:8px;justify-content:center">
@@ -1433,6 +1445,16 @@ textarea.input-field { resize: vertical; min-height: 70px; }
         <div style="font-size:15px;color:var(--text);font-weight:500" id="fcd-jp-preview">—</div>
         <div style="font-size:11px;color:var(--muted);margin-top:8px;margin-bottom:4px">スペイン語（裏面）</div>
         <div style="font-size:14px;color:var(--accent2);font-family:'DM Mono',monospace" id="fcd-es-preview">—</div>
+      </div>
+      <!-- フレーズ用例文入力エリア -->
+      <div id="fcd-examples-area" style="display:none;margin-top:14px">
+        <div style="font-size:12px;color:var(--accent);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">
+          例文 <span style="font-size:10px;color:var(--muted);text-transform:none;letter-spacing:0">（任意）</span>
+        </div>
+        <div id="fcd-examples-list"></div>
+        <button class="btn-secondary" style="margin-top:6px;padding:8px 14px;font-size:12px;gap:5px" onclick="addFCDExample()">
+          ＋ 例文を追加する
+        </button>
       </div>
     </div>
     <div class="modal-footer">
@@ -1933,6 +1955,10 @@ function buildSentencesFor(audioIdx, raw, db) {
     // ── Phrase rows ──
     const phraseRows = s.phrases.map((ph, pi) => {
       const saved = s.phrases_meanings[pi] || db.phrases[ph] || '';
+      const _phDictEntry = findDictEntry(ph);
+      const isPhRegistered = !!_phDictEntry;
+      const phDictBtnLabel = isPhRegistered ? '確認・編集' : '辞書登録';
+      const phDictBtnClass = isPhRegistered ? 'dict-btn registered' : 'dict-btn';
       return `
         <div class="word-meaning-row">
           <span class="word-tag phrase-tag">${escHtml(ph)}</span>
@@ -1940,6 +1966,9 @@ function buildSentencesFor(audioIdx, raw, db) {
             placeholder="フレーズの意味"
             value="${escHtml(saved)}"
             oninput="saveMeaning(${audioIdx},${si},'phrase',${pi},this.value)">
+          <button class="${phDictBtnClass}" onclick="openDictModal('${ph.replace(/'/g,"\\'")}','phrase')">
+            ${phDictBtnLabel}
+          </button>
         </div>`;
     }).join('');
 
@@ -1963,7 +1992,7 @@ function buildSentencesFor(audioIdx, raw, db) {
             placeholder="単語の意味"
             value="${escHtml(saved)}"
             oninput="saveMeaningAllWord(${audioIdx},${si},'${w.replace(/'/g,"\\'")}',this.value)">
-          <button class="${dictBtnClass}" onclick="openDictModal('${w.replace(/'/g,"\\'")}')">
+          <button class="${dictBtnClass}" onclick="openDictModal('${w.replace(/'/g,"\\'")}','word')">
             ${dictBtnLabel}
           </button>
         </div>`;
@@ -2887,7 +2916,7 @@ async function renderWordList(doSync) {
         <input class="vocab-meaning-input" type="text" value="${escHtml(meaning||'')}"
           oninput="updateVocab('word','${term.replace(/'/g,"\\'")}',this.value)">
         <button class="btn-small green" onclick="updateVocabSave('word','${term.replace(/'/g,"\\'")}')">更新</button>
-        <button class="${dictBtnClass}" onclick="openDictModal('${term.replace(/'/g,"\\'")}')">
+        <button class="${dictBtnClass}" onclick="openDictModal('${term.replace(/'/g,"\\'")}','word')">
           ${dictBtnLabel}
         </button>
       </div>
@@ -2996,9 +3025,11 @@ const TENSES = [
 const PRONOUNS = ['yo', 'tú', 'él/ella', 'nosotros', 'usted', 'ustedes', 'ellos/ellas'];
 
 let _dictModalTerm = null; // 編集中の単語
+let _dictModalSourceType = 'word'; // 辞書登録元の種別
 
-function openDictModal(term) {
+function openDictModal(term, sourceType) {
   _dictModalTerm = term || null;
+  _dictModalSourceType = sourceType || 'word';
   const db = getDB();
   // 活用形経由でもヒットするように findDictEntry を使用
   const existing = term ? findDictEntry(term) : null;
@@ -3115,7 +3146,7 @@ async function saveDictEntry() {
   closeDictModal();
 
   // 辞書→FC連携ポップアップを開く
-  openFCFromDictModal(es, jp);
+  openFCFromDictModal(es, jp, _dictModalSourceType);
 
   // 表示を更新（現在のスクリーンに応じて）
   const active = document.querySelector('.screen.active')?.id;
@@ -3129,13 +3160,17 @@ async function saveDictEntry() {
 }
 
 // ── 辞書→FC連携モーダル ─────────────────────────
-function openFCFromDictModal(es, jp) {
+function openFCFromDictModal(es, jp, sourceType) {
   _fcDictEs = es; _fcDictJp = jp;
-  _fcDictType = 'phrase'; _fcDictCat = '';
+  const initType = sourceType === 'phrase' ? 'phrase' : 'word';
+  _fcDictType = initType; _fcDictCat = '';
+  // 例文リセット
+  _fcDictExamples = [];
   document.getElementById('fcd-jp-preview').textContent = jp || '—';
   document.getElementById('fcd-es-preview').textContent = es || '—';
-  setFCDType('phrase', true);
+  setFCDType(initType, true);
   renderFCDCatChips();
+  renderFCDExamples();
   document.getElementById('fc-from-dict-modal').classList.add('active');
 }
 function closeFCFromDictModal() {
@@ -3145,6 +3180,9 @@ function setFCDType(type, noRender) {
   _fcDictType = type;
   document.getElementById('fcd-type-phrase').classList.toggle('active', type === 'phrase');
   document.getElementById('fcd-type-word').classList.toggle('active', type === 'word');
+  // 例文エリアはフレーズのときのみ表示
+  const exArea = document.getElementById('fcd-examples-area');
+  if (exArea) exArea.style.display = type === 'phrase' ? 'block' : 'none';
   if (!noRender) renderFCDCatChips();
 }
 function renderFCDCatChips() {
@@ -3163,13 +3201,52 @@ function selectFCDCat(id, el) {
   document.querySelectorAll('#fcd-cat-chips .fc-filter-chip').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
 }
+let _fcDictExamples = []; // [{es:'', jp:''}]
+
+function renderFCDExamples() {
+  const wrap = document.getElementById('fcd-examples-list');
+  if (!wrap) return;
+  wrap.innerHTML = _fcDictExamples.map((ex, i) => `
+    <div class="fcd-example-row" id="fcd-ex-row-${i}">
+      <div style="display:flex;gap:6px;margin-bottom:4px">
+        <input class="input-field" style="font-size:13px;padding:8px 10px" placeholder="例文（スペイン語）"
+          value="${escHtml(ex.es)}"
+          oninput="updateFCDExample(${i},'es',this.value)">
+        <button class="btn-small" style="color:var(--red);border-color:var(--red);flex-shrink:0" onclick="removeFCDExample(${i})">✕</button>
+      </div>
+      <input class="input-field" style="font-size:13px;padding:8px 10px" placeholder="例文の意味（日本語）"
+        value="${escHtml(ex.jp)}"
+        oninput="updateFCDExample(${i},'jp',this.value)">
+    </div>
+  `).join('');
+}
+
+function addFCDExample() {
+  _fcDictExamples.push({ es: '', jp: '' });
+  renderFCDExamples();
+}
+
+function removeFCDExample(i) {
+  _fcDictExamples.splice(i, 1);
+  renderFCDExamples();
+}
+
+function updateFCDExample(i, field, value) {
+  if (_fcDictExamples[i]) _fcDictExamples[i][field] = value;
+}
+
 async function saveFCFromDict() {
   const db = getDB();
   if (!db.flashcards) db.flashcards = [];
+  // 例文：空のものは除外
+  const examples = _fcDictType === 'phrase'
+    ? _fcDictExamples.filter(e => e.es.trim() || e.jp.trim())
+    : [];
   const fc = {
     id: 'fc_' + Date.now(), jp: _fcDictJp, es: _fcDictEs,
     memo: '', created: todayStr(),
-    type: _fcDictType, category: _fcDictCat
+    type: _fcDictType, category: _fcDictCat,
+    examples: examples.length ? examples : undefined
   };
   db.flashcards.push(fc);
   saveDB(db);
@@ -3483,12 +3560,41 @@ function showFCPreview(idx) {
   const card = document.getElementById('fc-preview-card');
   const jpEl = document.getElementById('fc-preview-jp');
   const esEl = document.getElementById('fc-preview-es');
+  const examplesEl = document.getElementById('fc-preview-examples');
   const hint = document.getElementById('fc-preview-hint');
   const numEl = document.getElementById('fc-preview-num');
 
+  const f = entries[idx];
+  const hasExamples = f.type === 'phrase' && f.examples && f.examples.length > 0;
+
   card.classList.remove('flipped');
-  jpEl.textContent = entries[idx].jp;
-  esEl.textContent = entries[idx].es;
+
+  if (hasExamples) {
+    // 表面：スペイン語フレーズ（大）
+    // 裏面：日本語意味 ＋ 例文一覧
+    jpEl.innerHTML = `<span style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">💬 フレーズ</span>${escHtml(f.es)}`;
+    jpEl.style.fontFamily = "'DM Mono', monospace";
+    jpEl.style.color = 'var(--accent2)';
+    esEl.textContent = f.jp;
+    esEl.style.fontFamily = "'Noto Sans JP', sans-serif";
+    esEl.style.color = 'var(--text)';
+    examplesEl.innerHTML = f.examples.map(ex => `
+      <div class="fc-preview-example-item">
+        <div class="fc-preview-example-es">${escHtml(ex.es)}</div>
+        ${ex.jp ? `<div class="fc-preview-example-jp">${escHtml(ex.jp)}</div>` : ''}
+      </div>
+    `).join('');
+  } else {
+    // 通常表示（単語、または例文なしフレーズ）
+    jpEl.textContent = f.jp;
+    jpEl.style.fontFamily = "'Noto Sans JP', sans-serif";
+    jpEl.style.color = '';
+    esEl.textContent = f.es;
+    esEl.style.fontFamily = "'DM Mono', monospace";
+    esEl.style.color = '';
+    examplesEl.innerHTML = '';
+  }
+
   hint.textContent = 'タップして確認';
   numEl.textContent = (idx + 1) + ' / ' + entries.length;
 }
