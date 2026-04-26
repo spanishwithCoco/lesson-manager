@@ -1341,10 +1341,13 @@ textarea.input-field { resize: vertical; min-height: 70px; }
         <label class="input-label">日本語</label>
         <input type="text" class="input-field" id="dict-jp" placeholder="例: 話す、しゃべる">
       </div>
-      <!-- 例文 -->
+      <!-- 例文（複数対応） -->
       <div class="input-group">
-        <label class="input-label">例文 <span style="font-size:10px;color:var(--muted)">（任意）</span></label>
-        <textarea class="input-field" id="dict-example" rows="2" placeholder="例文があれば入力"></textarea>
+        <label class="input-label" style="display:flex;align-items:center;justify-content:space-between">
+          例文 <span style="font-size:10px;color:var(--muted)">（任意）</span>
+          <button class="btn-small" onclick="addDictExample()" style="font-size:10px">＋ 例文を追加する</button>
+        </label>
+        <div id="dict-examples-list"><!-- JS --></div>
       </div>
       <!-- 豆知識 -->
       <div class="input-group">
@@ -1359,14 +1362,9 @@ textarea.input-field { resize: vertical; min-height: 70px; }
         <div id="conj-tenses"><!-- JS --></div>
       </div>
     </div>
-    <div class="modal-footer" style="flex-direction:column;gap:8px">
-      <div style="display:flex;gap:8px;width:100%">
-        <button class="btn-primary" style="flex:1" onclick="saveDictEntry()">保存する</button>
-        <button class="btn-secondary" style="width:auto;padding:12px 16px" onclick="closeDictModal()">キャンセル</button>
-      </div>
-      <button class="btn-secondary" style="width:100%;color:var(--muted);border-color:var(--border);font-size:12px;padding:10px" onclick="skipDictToFC()">
-        辞書登録をスキップしてフラッシュカードへ →
-      </button>
+    <div class="modal-footer">
+      <button class="btn-primary" style="flex:1" onclick="saveDictEntry()">保存する</button>
+      <button class="btn-secondary" style="width:auto;padding:12px 16px" onclick="closeDictModal()">キャンセル</button>
     </div>
   </div>
 </div>
@@ -1424,51 +1422,7 @@ textarea.input-field { resize: vertical; min-height: 70px; }
   </div>
 </div>
 
-<!-- 辞書→フラッシュカード連携モーダル -->
-<div class="modal-overlay" id="fc-from-dict-modal">
-  <div class="modal-box" style="max-width:420px">
-    <div class="modal-header">
-      <h2>フラッシュカードにも登録する？</h2>
-      <button class="modal-close" onclick="closeFCFromDictModal()">✕</button>
-    </div>
-    <div class="modal-body">
-      <div style="font-size:13px;color:var(--muted);margin-bottom:14px">
-        辞書登録した内容をフラッシュカードとして追加できます。
-      </div>
-      <div class="input-group" style="margin-bottom:8px">
-        <label class="input-label">種別</label>
-        <div class="type-toggle">
-          <button class="type-btn active" id="fcd-type-phrase" onclick="setFCDType('phrase')">💬 フレーズ</button>
-          <button class="type-btn" id="fcd-type-word" onclick="setFCDType('word')">📖 単語</button>
-        </div>
-      </div>
-      <div class="input-group">
-        <label class="input-label">カテゴリ</label>
-        <div id="fcd-cat-chips" style="display:flex;flex-wrap:wrap;gap:6px"></div>
-      </div>
-      <div style="background:var(--surface2);border-radius:10px;padding:12px;margin-bottom:4px">
-        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">日本語（表面）</div>
-        <div style="font-size:15px;color:var(--text);font-weight:500" id="fcd-jp-preview">—</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:8px;margin-bottom:4px">スペイン語（裏面）</div>
-        <div style="font-size:14px;color:var(--accent2);font-family:'DM Mono',monospace" id="fcd-es-preview">—</div>
-      </div>
-      <!-- フレーズ用例文入力エリア -->
-      <div id="fcd-examples-area" style="display:none;margin-top:14px">
-        <div style="font-size:12px;color:var(--accent);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">
-          例文 <span style="font-size:10px;color:var(--muted);text-transform:none;letter-spacing:0">（任意）</span>
-        </div>
-        <div id="fcd-examples-list"></div>
-        <button class="btn-secondary" style="margin-top:6px;padding:8px 14px;font-size:12px;gap:5px" onclick="addFCDExample()">
-          ＋ 例文を追加する
-        </button>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn-primary" style="flex:1" onclick="saveFCFromDict()">フラッシュカードに追加</button>
-      <button class="btn-secondary" style="width:auto;padding:12px 16px" onclick="closeFCFromDictModal()">スキップ</button>
-    </div>
-  </div>
-</div>
+<!-- fc-from-dict-modal removed: word+examples are now auto-registered as flashcards on dict save -->
 
 <!-- ═══════════════════════════════════════════════
      JAVASCRIPT
@@ -1560,7 +1514,9 @@ async function syncFromSupabase() {
     dictRows.forEach(r => {
       db.dict[r.es] = {
         es: r.es, jp: r.jp, pos: r.pos || '',
-        example: r.example || '', trivia: r.trivia || '',
+        example: r.example || '',
+        examples: r.examples || (r.example ? [{ es: r.example, jp: '' }] : []),
+        trivia: r.trivia || '',
         conjugation: r.conjugation || {},
         forms: r.forms || [],
         visibility: r.visibility || 'members'
@@ -1627,6 +1583,7 @@ async function pushDict(entry) {
   await sbUpsert('dict', {
     es: entry.es, jp: entry.jp, pos: entry.pos || '',
     example: entry.example || '', trivia: entry.trivia || '',
+    examples: entry.examples || [],
     conjugation: entry.conjugation || {},
     forms
   });
@@ -3032,6 +2989,46 @@ const PRONOUNS = ['yo', 'tú', 'usted', 'él/ella', 'nosotros', 'ustedes', 'ello
 
 let _dictModalTerm = null; // 編集中の単語
 let _dictModalSourceType = 'word'; // 辞書登録元の種別
+let _dictExamples = []; // [{es:'', jp:''}]
+
+// ── 辞書モーダル：例文追加・削除・レンダリング ──────
+function renderDictExamples() {
+  const wrap = document.getElementById('dict-examples-list');
+  if (!wrap) return;
+  if (_dictExamples.length === 0) {
+    wrap.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:4px 0 8px">（例文なし）</div>';
+    return;
+  }
+  wrap.innerHTML = _dictExamples.map((ex, i) => `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px">
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input class="input-field" style="font-size:13px;padding:8px 10px" placeholder="例文（スペイン語）"
+          value="${escHtml(ex.es)}"
+          oninput="updateDictExample(${i},'es',this.value)"
+          onblur="saveDictDraft(true)">
+        <button class="btn-small" style="color:var(--red);border-color:var(--red);flex-shrink:0" onclick="removeDictExample(${i})">✕</button>
+      </div>
+      <input class="input-field" style="font-size:13px;padding:8px 10px" placeholder="例文の日本語訳（任意）"
+        value="${escHtml(ex.jp)}"
+        oninput="updateDictExample(${i},'jp',this.value)"
+        onblur="saveDictDraft(true)">
+    </div>
+  `).join('');
+}
+
+function addDictExample() {
+  _dictExamples.push({ es: '', jp: '' });
+  renderDictExamples();
+}
+
+function removeDictExample(i) {
+  _dictExamples.splice(i, 1);
+  renderDictExamples();
+}
+
+function updateDictExample(i, field, value) {
+  if (_dictExamples[i]) _dictExamples[i][field] = value;
+}
 
 function openDictModal(term, sourceType) {
   _dictModalTerm = term || null;
@@ -3045,8 +3042,18 @@ function openDictModal(term, sourceType) {
   document.getElementById('dict-modal-title').textContent = existing ? '辞書確認・編集' : '辞書登録';
   document.getElementById('dict-es').value = headword;
   document.getElementById('dict-jp').value = existing?.jp || db.words[term] || '';
-  document.getElementById('dict-example').value = existing?.example || '';
   document.getElementById('dict-trivia').value = existing?.trivia || '';
+
+  // 例文配列を初期化
+  if (existing?.examples && Array.isArray(existing.examples) && existing.examples.length) {
+    _dictExamples = existing.examples.map(e => ({ es: e.es || '', jp: e.jp || '' }));
+  } else if (existing?.example) {
+    // 旧形式（単一文字列）の移行
+    _dictExamples = [{ es: existing.example, jp: '' }];
+  } else {
+    _dictExamples = [];
+  }
+  renderDictExamples();
 
   // 品詞リセット
   document.querySelectorAll('.pos-btn').forEach(b => b.classList.remove('selected'));
@@ -3077,20 +3084,11 @@ function openDictModal(term, sourceType) {
 function closeDictModal() {
   document.getElementById('dict-modal').classList.remove('active');
   _dictModalTerm = null;
+  _dictExamples = [];
   clearDictDraft();
 }
 
-// 辞書登録をスキップしてFCモーダルへ直行
-function skipDictToFC() {
-  const term = _dictModalTerm || '';
-  const sourceType = _dictModalSourceType || 'word';
-  // 入力欄の値を取得（途中まで入力していた場合も拾う）
-  const esVal = (document.getElementById('dict-es')?.value || term).trim();
-  const jpVal = (document.getElementById('dict-jp')?.value || '').trim();
-  clearDictDraft();
-  closeDictModal();
-  openFCFromDictModal(esVal, jpVal, sourceType);
-}
+
 
 function selectPOS(btn) {
   document.querySelectorAll('.pos-btn').forEach(b => b.classList.remove('selected'));
@@ -3195,12 +3193,16 @@ async function saveDictEntry() {
   const pos     = document.querySelector('.pos-btn.selected')?.dataset.pos || '';
   const es      = document.getElementById('dict-es').value.trim();
   const jp      = document.getElementById('dict-jp').value.trim();
-  const example = document.getElementById('dict-example').value.trim();
   const trivia  = document.getElementById('dict-trivia').value.trim();
 
   if (!es) { toast('スペイン語を入力してください'); return; }
 
-  const entry = { pos, es, jp, example, trivia };
+  // 例文配列（空のものを除外）
+  const examples = _dictExamples.filter(e => e.es.trim());
+  // 後方互換のため example フィールドも先頭例文から設定
+  const example = examples.length ? examples[0].es : '';
+
+  const entry = { pos, es, jp, example, examples, trivia };
   if (pos === '動詞') entry.conjugation = collectConjugation();
   entry.forms = extractForms(entry.conjugation || {});
 
@@ -3216,7 +3218,53 @@ async function saveDictEntry() {
     pushVocab('word', es, jp).catch(()=>{});
   }
 
-  // 活用表の例文→FC自動生成（動詞のみ）
+  // ── 単語自体をフラッシュカードに自動登録 ──────────
+  let wordFCAdded = 0;
+  if (es && jp) {
+    if (!db.flashcards) db.flashcards = [];
+    const dupWord = db.flashcards.find(f => f.es === es && (f.type === 'word' || f.type === 'phrase'));
+    if (!dupWord) {
+      const wordFC = {
+        id: 'fc_word_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+        type: 'word',
+        category: '',
+        es: es,
+        jp: jp,
+        memo: pos ? `[${pos}]` : '',
+        created: todayStr()
+      };
+      db.flashcards.push(wordFC);
+      try { await pushFC(wordFC); } catch(e) {}
+      wordFCAdded = 1;
+    }
+    saveDB(db);
+  }
+
+  // ── 例文をフラッシュカードに自動登録 ──────────────
+  let exFCAdded = 0;
+  if (examples.length) {
+    if (!db.flashcards) db.flashcards = [];
+    for (const ex of examples) {
+      if (!ex.es.trim()) continue;
+      const dupEx = db.flashcards.find(f => f.es === ex.es && f.type === 'phrase');
+      if (dupEx) continue;
+      const exFC = {
+        id: 'fc_ex_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+        type: 'phrase',
+        category: '',
+        es: ex.es,
+        jp: ex.jp || '',
+        memo: `例文: ${es}`,
+        created: todayStr()
+      };
+      db.flashcards.push(exFC);
+      try { await pushFC(exFC); } catch(e) {}
+      exFCAdded++;
+    }
+    saveDB(db);
+  }
+
+  // ── 活用表の例文 → FC自動生成（動詞のみ） ──────────
   let conjFCCount = 0;
   if (pos === '動詞' && entry.conjugation) {
     conjFCCount = await autoGenConjFCs(es, jp, entry.conjugation);
@@ -3225,23 +3273,23 @@ async function saveDictEntry() {
   // Supabaseに保存
   try {
     await pushDict(entry);
-    const conjMsg = conjFCCount > 0 ? `（活用例文 ${conjFCCount}枚をFCに追加）` : '';
-    toast('辞書に保存しました' + conjMsg);
+    const parts = [];
+    if (wordFCAdded) parts.push('単語カード1枚');
+    if (exFCAdded) parts.push(`例文カード${exFCAdded}枚`);
+    if (conjFCCount) parts.push(`活用例文${conjFCCount}枚`);
+    const fcMsg = parts.length ? `（フラッシュカードに自動登録: ${parts.join('・')}）` : '';
+    toast('辞書に保存しました' + fcMsg);
   } catch(e) {
     console.warn('dict sync error:', e);
     toast('辞書に保存しました（ローカルのみ）');
   }
 
-  closeDictModal(); // clearDictDraftも内部で呼ばれる
+  closeDictModal();
 
-  // 辞書→FC連携ポップアップを開く
-  openFCFromDictModal(es, jp, _dictModalSourceType);
-
-  // 表示を更新（現在のスクリーンに応じて）
+  // 表示を更新
   const active = document.querySelector('.screen.active')?.id;
   if (active === 'screen-dict') renderDictList();
   if (active === 'screen-lesson-vocab') renderWordList();
-  // レッスン作成中なら辞書ボタン表示を更新
   if (active === 'screen-create') {
     const name = document.getElementById('lesson-name')?.value.trim();
     buildAudioInputs(name, audioData.length);
@@ -3260,7 +3308,7 @@ function saveDictDraft(silent) {
     term: _dictModalTerm, sourceType: _dictModalSourceType,
     es: document.getElementById('dict-es')?.value || '',
     jp: document.getElementById('dict-jp')?.value || '',
-    example: document.getElementById('dict-example')?.value || '',
+    examples: _dictExamples,
     trivia: document.getElementById('dict-trivia')?.value || '',
     pos, conj
   };
@@ -3276,7 +3324,13 @@ function restoreDictDraft(draft) {
   if (!draft) return;
   if (draft.es) document.getElementById('dict-es').value = draft.es;
   if (draft.jp) document.getElementById('dict-jp').value = draft.jp;
-  if (draft.example) document.getElementById('dict-example').value = draft.example;
+  if (draft.examples && Array.isArray(draft.examples)) {
+    _dictExamples = draft.examples;
+    renderDictExamples();
+  } else if (draft.example) {
+    _dictExamples = [{ es: draft.example, jp: '' }];
+    renderDictExamples();
+  }
   if (draft.trivia) document.getElementById('dict-trivia').value = draft.trivia;
   if (draft.pos) {
     document.querySelectorAll('.pos-btn').forEach(b => b.classList.remove('selected'));
@@ -3317,7 +3371,7 @@ function clearFCDDraft() {
 // blur自動保存の初期化（DOMContentLoaded後に呼ぶ）
 function initAutoDraftListeners() {
   // 辞書モーダルの入力欄
-  ['dict-es','dict-jp','dict-example','dict-trivia'].forEach(id => {
+  ['dict-es','dict-jp','dict-trivia'].forEach(id => {
     document.getElementById(id)?.addEventListener('blur', saveDictDraft);
   });
   // 活用表は動的生成なのでイベント委任
@@ -3357,10 +3411,10 @@ function openFCFromDictModal(es, jp, sourceType) {
   setFCDType(_fcDictType, true);
   renderFCDCatChips();
   renderFCDExamples();
-  document.getElementById('fc-from-dict-modal').classList.add('active');
+  document.getElementById('fc-from-dict-modal')?.classList.add('active');
 }
 function closeFCFromDictModal() {
-  document.getElementById('fc-from-dict-modal').classList.remove('active');
+  document.getElementById('fc-from-dict-modal')?.classList.remove('active');
   clearFCDDraft();
 }
 function setFCDType(type, noRender) {
@@ -3840,9 +3894,6 @@ document.getElementById('dict-modal').addEventListener('click', e => {
 });
 document.getElementById('fc-modal').addEventListener('click', e => {
   if (e.target === document.getElementById('fc-modal')) closeFCModal();
-});
-document.getElementById('fc-from-dict-modal').addEventListener('click', e => {
-  if (e.target === document.getElementById('fc-from-dict-modal')) closeFCFromDictModal();
 });
 
 // Strip [] and () annotation markers, leaving only the plain text
