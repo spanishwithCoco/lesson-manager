@@ -1358,9 +1358,14 @@ textarea.input-field { resize: vertical; min-height: 70px; }
         <div id="conj-tenses"><!-- JS --></div>
       </div>
     </div>
-    <div class="modal-footer">
-      <button class="btn-primary" style="flex:1" onclick="saveDictEntry()">保存する</button>
-      <button class="btn-secondary" style="width:auto;padding:12px 16px" onclick="closeDictModal()">キャンセル</button>
+    <div class="modal-footer" style="flex-direction:column;gap:8px">
+      <div style="display:flex;gap:8px;width:100%">
+        <button class="btn-primary" style="flex:1" onclick="saveDictEntry()">保存する</button>
+        <button class="btn-secondary" style="width:auto;padding:12px 16px" onclick="closeDictModal()">キャンセル</button>
+      </div>
+      <button class="btn-secondary" style="width:100%;color:var(--muted);border-color:var(--border);font-size:12px;padding:10px" onclick="skipDictToFC()">
+        辞書登録をスキップしてフラッシュカードへ →
+      </button>
     </div>
   </div>
 </div>
@@ -3059,6 +3064,17 @@ function openDictModal(term, sourceType) {
 function closeDictModal() {
   document.getElementById('dict-modal').classList.remove('active');
   _dictModalTerm = null;
+}
+
+// 辞書登録をスキップしてFCモーダルへ直行
+function skipDictToFC() {
+  const term = _dictModalTerm || '';
+  const sourceType = _dictModalSourceType || 'word';
+  // 入力欄の値を取得（途中まで入力していた場合も拾う）
+  const esVal = (document.getElementById('dict-es')?.value || term).trim();
+  const jpVal = (document.getElementById('dict-jp')?.value || '').trim();
+  closeDictModal();
+  openFCFromDictModal(esVal, jpVal, sourceType);
 }
 
 function selectPOS(btn) {
