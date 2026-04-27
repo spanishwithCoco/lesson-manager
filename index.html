@@ -1790,6 +1790,8 @@ async function syncFromSupabase() {
         conjugation: r.conjugation || {},
         conjMode: r.conj_mode || 'normal',
         customConj: r.custom_conj || {},
+        subtitleOverrides: r.subtitle_overrides || {},
+        hiddenTenses: r.hidden_tenses || [],
         forms: r.forms || [],
         visibility: r.visibility || 'members'
       };
@@ -1868,6 +1870,8 @@ async function pushDict(entry) {
     conjugation: entry.conjugation || {},
     conj_mode: entry.conjMode || 'normal',
     custom_conj: entry.customConj || {},
+    subtitle_overrides: entry.subtitleOverrides || {},
+    hidden_tenses: entry.hiddenTenses || [],
     forms: allForms,
     visibility: entry.visibility || 'members'
   });
