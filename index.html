@@ -1683,7 +1683,9 @@ async function syncFromSupabase() {
         adjForms:  r.adj_forms  || {},
         conjugation: r.conjugation || {},
         forms: r.forms || [],
-        visibility: r.visibility || 'members'
+        visibility: r.visibility || 'members',
+        hiddenTenses: (r.conjugation && r.conjugation._hiddenTenses) || [],
+        tenseNotes:   (r.conjugation && r.conjugation._tenseNotes)   || {}
       };
     });
     db.flashcards = fcRows.map(r => ({
@@ -1751,13 +1753,18 @@ async function pushDict(entry) {
     .filter(f => f && f.trim()).map(f => f.toLowerCase().trim());
   const allForms = [...new Set([...forms, ...extraForms])];
 
+  // conjugation に _meta として hiddenTenses/tenseNotes を埋め込む（別カラム不要）
+  const conjWithMeta = Object.assign({}, entry.conjugation || {}, {
+    _hiddenTenses: entry.hiddenTenses || [],
+    _tenseNotes:   entry.tenseNotes   || {}
+  });
   await sbUpsert('dict', {
     es: entry.es, jp: entry.jp, pos: entry.pos || '',
     example: entry.example || '', trivia: entry.trivia || '',
     examples: entry.examples || [],
     noun_forms: entry.nounForms || {},
     adj_forms:  entry.adjForms  || {},
-    conjugation: entry.conjugation || {},
+    conjugation: conjWithMeta,
     forms: allForms,
     visibility: entry.visibility || 'members'
   });
@@ -1766,8 +1773,9 @@ async function deleteDict(es) {
   await sbDelete('dict', { es });
 }
 function extractForms(conjugation) {
-  const conjForms = Object.values(conjugation || {})
-    .map(v => (v.form || '').trim().toLowerCase())
+  const conjForms = Object.entries(conjugation || {})
+    .filter(([k]) => !k.startsWith('_'))   // _meta キーは除外
+    .map(([, v]) => (v.form || '').trim().toLowerCase())
     .filter(f => f.length > 0);
   return conjForms;
 }
