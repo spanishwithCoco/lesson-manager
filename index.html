@@ -1715,7 +1715,8 @@ async function pushDict(entry) {
     noun_forms: entry.nounForms || {},
     adj_forms: entry.adjForms || {},
     conjugation: entry.conjugation || {},
-    forms
+    forms,
+    visibility: entry.visibility || 'members'
   });
 }
 async function deleteDict(es) {
@@ -3129,12 +3130,7 @@ async function updateVisibility(type, id, selectEl) {
       saveDB(db);
       try {
         const entry = db.dict[id];
-        await sbUpsert('dict', {
-          es: entry.es, jp: entry.jp, pos: entry.pos || '',
-          example: entry.example || '', trivia: entry.trivia || '',
-          conjugation: entry.conjugation || {}, forms: entry.forms || [],
-          visibility: vis
-        });
+        await pushDict(entry);
       } catch(e) { console.warn('dict visibility sync error:', e); }
     }
   }
@@ -3520,20 +3516,21 @@ async function saveDictEntry() {
   const nounForms = (pos === '名詞') ? collectNounForms() : {};
   const adjForms  = (pos === '形容詞') ? collectAdjForms() : {};
 
-  const entry = { pos, es, jp, example, examples, trivia, nounForms, adjForms };
+  const entry = { pos, es, jp, example, examples, trivia, nounForms, adjForms, visibility: 'members' };
   if (pos === '動詞') entry.conjugation = collectConjugation();
   entry.forms = extractForms(entry.conjugation || {});
 
   const db = getDB();
   if (!db.dict) db.dict = {};
+  // 既存エントリがあれば visibility を引き継ぐ
+  if (db.dict[es]?.visibility) entry.visibility = db.dict[es].visibility;
   db.dict[es] = entry;
   saveDB(db);
 
-  // vocab DBにも反映
+  // vocab DBにも反映（ローカルのみ。Supabaseへの push は後でまとめて行う）
   if (jp) {
     db.words[es] = jp;
     saveDB(db);
-    pushVocab('word', es, jp).catch(()=>{});
   }
 
   // ── 単語FCの自動登録（名詞は単数・複数それぞれ別カード） ──
@@ -3642,24 +3639,36 @@ async function saveDictEntry() {
   }
 
   // Supabaseに保存
+  let sbError = null;
   try {
     await pushDict(entry);
-    const parts = [];
-    if (wordFCAdded) parts.push(pos === '名詞' ? `名詞カード${wordFCAdded}枚` : pos === '形容詞' ? `形容詞カード${wordFCAdded}枚` : '単語カード1枚');
-    if (exFCAdded) parts.push(`例文カード${exFCAdded}枚`);
-    if (conjFCCount) parts.push(`活用例文${conjFCCount}枚`);
-    const fcMsg = parts.length ? `（フラッシュカードに自動登録: ${parts.join('・')}）` : '';
-    toast('辞書に保存しました' + fcMsg);
   } catch(e) {
+    sbError = e;
     console.warn('dict sync error:', e);
-    toast('辞書に保存しました（ローカルのみ）');
+  }
+
+  // vocab も Supabase に保存（辞書登録と別に確実に実行）
+  if (jp) {
+    try { await pushVocab('word', es, jp); } catch(e) { console.warn('vocab sync error:', e); }
+  }
+
+  const parts = [];
+  if (wordFCAdded) parts.push(pos === '名詞' ? `名詞カード${wordFCAdded}枚` : pos === '形容詞' ? `形容詞カード${wordFCAdded}枚` : '単語カード1枚');
+  if (exFCAdded) parts.push(`例文カード${exFCAdded}枚`);
+  if (conjFCCount) parts.push(`活用例文${conjFCCount}枚`);
+  const fcMsg = parts.length ? `（FC: ${parts.join('・')}）` : '';
+
+  if (sbError) {
+    toast('ローカルに保存しました' + fcMsg + '（クラウド同期エラー: ' + (sbError.message||sbError) + '）', 4000);
+  } else {
+    toast('辞書に保存しました ✓' + fcMsg);
   }
 
   closeDictModal();
 
-  // 表示を更新
+  // 表示を更新（画面に関わらず辞書一覧は常に更新）
+  renderDictList();
   const active = document.querySelector('.screen.active')?.id;
-  if (active === 'screen-dict') renderDictList();
   if (active === 'screen-lesson-vocab') renderWordList();
   if (active === 'screen-create') {
     const name = document.getElementById('lesson-name')?.value.trim();
@@ -3698,6 +3707,9 @@ async function autoSaveDictEntry(silent) {
   // localDBに保存
   const db = getDB();
   if (!db.dict) db.dict = {};
+  // 既存 visibility を引き継ぐ
+  const existingVis = db.dict[es]?.visibility || 'members';
+  entry.visibility = existingVis;
   db.dict[es] = { ...(db.dict[es] || {}), ...entry };
   if (jp) db.words[es] = jp;
   saveDB(db);
