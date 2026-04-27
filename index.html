@@ -4370,18 +4370,41 @@ function restoreDictDraft(draft) {
     renderDictExamples();
   }
   if (draft.trivia) document.getElementById('dict-trivia').value = draft.trivia;
+
+  // ── 活用関連の状態を先に全部復元してから toggleConjSection を呼ぶ ──
+  if (draft.hiddenTenses && Array.isArray(draft.hiddenTenses)) {
+    _hiddenTenses = new Set(draft.hiddenTenses);
+  }
+  if (draft.subtitleOverrides && typeof draft.subtitleOverrides === 'object') {
+    _subtitleOverrides = Object.assign({}, draft.subtitleOverrides);
+  }
+  if (draft.conjMode) {
+    _conjMode = draft.conjMode;
+    document.getElementById('conj-mode-btn-normal')?.classList.toggle('conj-mode-active', _conjMode === 'normal');
+    document.getElementById('conj-mode-btn-custom')?.classList.toggle('conj-mode-active', _conjMode === 'custom');
+  }
+  if (draft.customConj && typeof draft.customConj === 'object') {
+    _customConj = JSON.parse(JSON.stringify(draft.customConj));
+  }
+  if (draft.conj && typeof draft.conj === 'object') {
+    _lastNormalConj = JSON.parse(JSON.stringify(draft.conj));
+  }
+
+  // 品詞選択 → toggleConjSection は状態復元後に呼ぶ
   if (draft.pos) {
     document.querySelectorAll('.pos-btn').forEach(b => b.classList.remove('selected'));
     const btn = document.querySelector(`.pos-btn[data-pos="${draft.pos}"]`);
     if (btn) { btn.classList.add('selected'); toggleConjSection(draft.pos === '動詞'); toggleNounSection(draft.pos === '名詞'); toggleAdjSection(draft.pos === '形容詞'); }
   }
+
   if (draft.adjForms) {
     const af = draft.adjForms;
     if (document.getElementById('adj-msg')) document.getElementById('adj-msg').value = af.msg || '';
     if (document.getElementById('adj-fsg')) document.getElementById('adj-fsg').value = af.fsg || '';
     if (document.getElementById('adj-mpl')) document.getElementById('adj-mpl').value = af.mpl || '';
     if (document.getElementById('adj-fpl')) document.getElementById('adj-fpl').value = af.fpl || '';
-  }  if (draft.nounForms) {
+  }
+  if (draft.nounForms) {
     const nf = draft.nounForms;
     _nounGender = nf.gender || '';
     if (document.getElementById('noun-sg-def'))   document.getElementById('noun-sg-def').value   = nf.sgDef   || '';
@@ -4400,28 +4423,6 @@ function restoreDictDraft(draft) {
         ab.style.fontWeight  = '700';
       }
     }
-  }
-  if (draft.hiddenTenses && Array.isArray(draft.hiddenTenses)) {
-    _hiddenTenses = new Set(draft.hiddenTenses);
-  }
-  if (draft.subtitleOverrides && typeof draft.subtitleOverrides === 'object') {
-    _subtitleOverrides = Object.assign({}, draft.subtitleOverrides);
-  }
-  if (draft.conjMode) {
-    _conjMode = draft.conjMode;
-    document.getElementById('conj-mode-btn-normal')?.classList.toggle('conj-mode-active', _conjMode === 'normal');
-    document.getElementById('conj-mode-btn-custom')?.classList.toggle('conj-mode-active', _conjMode === 'custom');
-  }
-  if (draft.customConj && typeof draft.customConj === 'object') {
-    _customConj = JSON.parse(JSON.stringify(draft.customConj));
-  }
-  if (draft.conj && typeof draft.conj === 'object') {
-    _lastNormalConj = JSON.parse(JSON.stringify(draft.conj));
-  }
-  if (_conjMode === 'custom') {
-    buildCustomConjTable();
-  } else if (draft.conj && Object.keys(draft.conj).length) {
-    buildConjTable(draft.conj);
   }
 }
 
