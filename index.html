@@ -3532,13 +3532,19 @@ function selectPOS(btn) {
   btn.classList.add('selected');
   const pos = btn.dataset.pos;
   if (pos === '動詞') {
-    // 活用表を最新の原形で再ビルドしてから表示
-    const conj = (typeof collectConjugation === 'function') ? {} : {};
-    buildConjTable(conj);
     document.getElementById('conj-section').style.display = 'block';
     const infinitive = document.getElementById('dict-es')?.value.trim() || '';
     const display = document.getElementById('conj-infinitive-display');
     if (display) display.textContent = infinitive || '—';
+    // モードに応じてテーブルを（再）ビルド
+    if (_conjMode === 'custom') {
+      if (!Object.keys(_customConj).length) {
+        TENSES.forEach(t => { _customConj[t.key] = [{ form: '', example: '', meaning: '' }]; });
+      }
+      buildCustomConjTable();
+    } else {
+      buildConjTable(_lastNormalConj || {});
+    }
   } else {
     document.getElementById('conj-section').style.display = 'none';
   }
@@ -3646,9 +3652,15 @@ function toggleConjSection(show) {
     const infinitive = document.getElementById('dict-es')?.value.trim() || '';
     const display = document.getElementById('conj-infinitive-display');
     if (display) display.textContent = infinitive || '—';
-    // 活用表を現在の savedConj で再ビルド（原形自動入力のため）
-    const conj = (typeof collectConjugation === 'function') ? collectConjugation() : {};
-    buildConjTable(conj);
+    // モードに応じてテーブルをビルド（カスタムモードなら通常テーブルで上書きしない）
+    if (_conjMode === 'custom') {
+      if (!Object.keys(_customConj).length) {
+        TENSES.forEach(t => { _customConj[t.key] = [{ form: '', example: '', meaning: '' }]; });
+      }
+      buildCustomConjTable();
+    } else {
+      buildConjTable(_lastNormalConj || {});
+    }
   }
 }
 
@@ -4045,6 +4057,8 @@ function onDictEsInput(val) {
   // 活用表が表示されていなければ何もしない
   const conjSection = document.getElementById('conj-section');
   if (!conjSection || conjSection.style.display === 'none') return;
+  // カスタムモードでは原形列の自動入力のみ行う（テーブル再ビルドはしない）
+  if (_conjMode === 'custom') return;
 
   const autoGer  = guessGerundio(infinitive);
   const autoPart = guessParticipio(infinitive);
