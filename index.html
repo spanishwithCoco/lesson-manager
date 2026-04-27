@@ -998,6 +998,83 @@ textarea.input-field { resize: vertical; min-height: 70px; }
 .tense-subtitle-input:focus { outline: none; border-color: var(--accent); background: var(--surface); }
 .tense-block-hidden .tense-subtitle-row { display: none; }
 
+/* ── 活用モード切替ボタン ── */
+.conj-mode-btn {
+  padding: 4px 12px; border-radius: 7px;
+  border: 1px solid var(--border); background: var(--surface);
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 11px; color: var(--muted);
+  cursor: pointer; transition: all .18s; white-space: nowrap;
+}
+.conj-mode-btn:hover { border-color: var(--accent); color: var(--accent); }
+.conj-mode-btn.conj-mode-active {
+  background: var(--accent); color: #fff;
+  border-color: var(--accent); font-weight: 700;
+}
+
+/* ── カスタムモード：自由入力リスト ── */
+.custom-tense-block {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.custom-tense-block.tense-block-hidden { opacity: .55; }
+.custom-tense-block.tense-block-hidden .custom-tense-body { display: none; }
+.custom-tense-header {
+  background: var(--surface2);
+  padding: 6px 10px;
+  display: flex; align-items: center; gap: 6px;
+}
+.custom-tense-header .tense-label {
+  flex: 1; font-size: 11px; color: var(--accent);
+  font-family: 'DM Mono', monospace; font-weight: 500; letter-spacing: .04em;
+}
+.custom-tense-subtitle-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 10px 6px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+.custom-tense-body { padding: 10px; background: var(--surface); }
+.custom-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: 6px; margin-bottom: 6px; align-items: center;
+}
+.custom-row input {
+  width: 100%; padding: 5px 8px;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+  font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text);
+}
+.custom-row input.jp { font-family: 'Noto Sans JP', sans-serif; font-size: 11px; }
+.custom-row input:focus { outline: none; border-color: var(--accent); background: var(--surface); }
+.custom-row-del {
+  width: 26px; height: 26px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--surface);
+  color: var(--red); font-size: 13px;
+  cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  transition: all .15s;
+}
+.custom-row-del:hover { background: var(--red); color: #fff; border-color: var(--red); }
+.custom-col-heads {
+  display: grid; grid-template-columns: 1fr 1fr 1fr auto;
+  gap: 6px; margin-bottom: 4px; padding: 0 0 2px;
+}
+.custom-col-head {
+  font-size: 10px; color: var(--muted);
+  font-family: 'DM Mono', monospace; text-align: left;
+}
+.custom-add-btn {
+  display: flex; align-items: center; gap: 5px;
+  margin-top: 6px; padding: 5px 10px;
+  border: 1px dashed var(--border); border-radius: 7px;
+  background: none; color: var(--muted);
+  font-family: 'Noto Sans JP', sans-serif; font-size: 11px;
+  cursor: pointer; transition: all .18s; width: 100%; justify-content: center;
+}
+.custom-add-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
 /* 辞書一覧 */
 .dict-item {
   background: var(--surface);
@@ -1527,9 +1604,16 @@ textarea.input-field { resize: vertical; min-height: 70px; }
       <!-- 活用表（動詞のみ） -->
       <div id="conj-section" style="display:none">
         <hr class="divider">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
           <div style="font-size:12px;color:var(--accent);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.05em">活用表 Conjugación</div>
           <div style="font-size:12px;color:var(--muted)">原形：<span id="conj-infinitive-display" style="font-family:'DM Mono',monospace;color:var(--accent2)">—</span></div>
+        </div>
+        <!-- 活用モード切替 -->
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:6px 8px">
+          <span style="font-size:11px;color:var(--muted);white-space:nowrap">活用モード：</span>
+          <button id="conj-mode-btn-normal" class="conj-mode-btn conj-mode-active" onclick="setConjMode('normal')">🔤 通常</button>
+          <button id="conj-mode-btn-custom" class="conj-mode-btn" onclick="setConjMode('custom')">⚡ カスタム</button>
+          <span id="conj-mode-hint" style="font-size:10px;color:var(--muted);margin-left:4px">haber・llover・不規則動詞など</span>
         </div>
         <div id="conj-tenses"><!-- JS --></div>
       </div>
@@ -3222,6 +3306,10 @@ const TENSES = [
 let _hiddenTenses = new Set();
 // subtitleの上書き（入力BOX用）
 let _subtitleOverrides = {};
+// 活用モード: 'normal' | 'custom'
+let _conjMode = 'normal';
+// カスタムモードのデータ: { [tenseKey]: [{form:'', example:'', meaning:''}] }
+let _customConj = {};
 
 // ir a の活用（固定）
 const IR_A_FORMS = { yo:'voy a', tú:'vas a', usted:'va a', 'él/ella':'va a', nosotros:'vamos a', ustedes:'van a', 'ellos/ellas':'van a' };
@@ -3340,7 +3428,19 @@ function openDictModal(term, sourceType) {
   // 活用表
   _hiddenTenses = new Set(existing?.hiddenTenses || []);
   _subtitleOverrides = Object.assign({}, existing?.subtitleOverrides || {});
-  buildConjTable(existing?.conjugation || {});
+  _conjMode = existing?.conjMode || 'normal';
+  _customConj = JSON.parse(JSON.stringify(existing?.customConj || {}));
+  // モード切替ボタンの見た目を更新
+  document.getElementById('conj-mode-btn-normal')?.classList.toggle('conj-mode-active', _conjMode === 'normal');
+  document.getElementById('conj-mode-btn-custom')?.classList.toggle('conj-mode-active', _conjMode === 'custom');
+  if (_conjMode === 'custom') {
+    if (!Object.keys(_customConj).length) {
+      TENSES.forEach(t => { _customConj[t.key] = [{ form: '', example: '', meaning: '' }]; });
+    }
+    buildCustomConjTable();
+  } else {
+    buildConjTable(existing?.conjugation || {});
+  }
   // toggleConjSection は display 切替のみ（再ビルドしない）
   document.getElementById('conj-section').style.display = (existing?.pos === '動詞') ? 'block' : 'none';
   if (existing?.pos === '動詞') {
@@ -3404,6 +3504,8 @@ function closeDictModal() {
   _dictExamples = [];
   _hiddenTenses = new Set();
   _subtitleOverrides = {};
+  _conjMode = 'normal';
+  _customConj = {};
   clearDictDraft();
 }
 
@@ -3534,6 +3636,104 @@ function toggleConjSection(show) {
   }
 }
 
+// ── 活用モード切替 ────────────────────────────────
+function setConjMode(mode) {
+  _conjMode = mode;
+  // ボタンの見た目を更新
+  document.getElementById('conj-mode-btn-normal')?.classList.toggle('conj-mode-active', mode === 'normal');
+  document.getElementById('conj-mode-btn-custom')?.classList.toggle('conj-mode-active', mode === 'custom');
+  const hint = document.getElementById('conj-mode-hint');
+  if (hint) hint.style.display = mode === 'custom' ? 'inline' : 'inline';
+
+  if (mode === 'custom') {
+    // 通常モードから切り替え時：既存入力があれば初期データとして引き継ぐ
+    if (!Object.keys(_customConj).length) {
+      TENSES.forEach(t => { _customConj[t.key] = [{ form: '', example: '', meaning: '' }]; });
+    }
+    buildCustomConjTable();
+  } else {
+    const saved = collectCustomConjAsNormal();
+    buildConjTable(saved);
+  }
+}
+
+// カスタムモード → 通常モード変換（保存データ互換のため）
+function collectCustomConjAsNormal() {
+  // カスタムモードのデータは conjugation に入れないので空を返す（カスタムは別フィールドで保存）
+  return {};
+}
+
+// カスタムモードのテーブルをビルド
+function buildCustomConjTable() {
+  const container = document.getElementById('conj-tenses');
+  container.innerHTML = TENSES.map(t => {
+    const isHidden = _hiddenTenses.has(t.key);
+    const subtitlePlaceholder = t.subtitle || '';
+    const subtitleVal = _subtitleOverrides[t.key] !== undefined ? _subtitleOverrides[t.key] : '';
+    const toggleBtn = isHidden
+      ? `<button class="tense-restore-btn" onclick="toggleTenseVisibility('${t.key}')">↩ 復活</button>`
+      : `<button class="tense-delete-btn" onclick="toggleTenseVisibility('${t.key}')">✕ 削除</button>`;
+
+    const rows = (_customConj[t.key] || [{ form: '', example: '', meaning: '' }]);
+    const rowsHtml = rows.map((row, ri) => `
+      <div class="custom-row" id="custom-row-${t.key}-${ri}">
+        <input value="${escHtml(row.form)}" placeholder="活用形（ES）"
+          oninput="_customConj['${t.key}'][${ri}].form=this.value;autoSaveDictEntry(false)"
+          onblur="autoSaveDictEntry(false)">
+        <input value="${escHtml(row.example)}" placeholder="例文（ES）"
+          oninput="_customConj['${t.key}'][${ri}].example=this.value;autoSaveDictEntry(false)"
+          onblur="autoSaveDictEntry(false)">
+        <input class="jp" value="${escHtml(row.meaning)}" placeholder="意味（JP）"
+          oninput="_customConj['${t.key}'][${ri}].meaning=this.value;autoSaveDictEntry(false)"
+          onblur="autoSaveDictEntry(false)">
+        <button class="custom-row-del" onclick="removeCustomRow('${t.key}',${ri})" title="削除">✕</button>
+      </div>`).join('');
+
+    return `<div class="custom-tense-block${isHidden?' tense-block-hidden':''}" id="tense-block-${t.key}">
+      <div class="custom-tense-header">
+        <span class="tense-label">${t.label}</span>
+        ${toggleBtn}
+      </div>
+      <div class="custom-tense-subtitle-row">
+        <span class="tense-subtitle-label">意味：</span>
+        <input class="tense-subtitle-input" id="tense-subtitle-${t.key}"
+          value="${escHtml(subtitleVal)}"
+          placeholder="${escHtml(subtitlePlaceholder)}"
+          oninput="_subtitleOverrides['${t.key}']=this.value;autoSaveDictEntry(false)">
+      </div>
+      <div class="custom-tense-body">
+        <div class="custom-col-heads">
+          <span class="custom-col-head">活用形（ES）</span>
+          <span class="custom-col-head">例文（ES）</span>
+          <span class="custom-col-head">意味（JP）</span>
+          <span></span>
+        </div>
+        <div id="custom-rows-${t.key}">${rowsHtml}</div>
+        <button class="custom-add-btn" onclick="addCustomRow('${t.key}')">＋ 行を追加</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function addCustomRow(tenseKey) {
+  if (!_customConj[tenseKey]) _customConj[tenseKey] = [];
+  _customConj[tenseKey].push({ form: '', example: '', meaning: '' });
+  buildCustomConjTable();
+  // 追加した行の最初のinputにフォーカス
+  const rows = document.querySelectorAll(`#custom-rows-${tenseKey} .custom-row`);
+  if (rows.length) rows[rows.length - 1].querySelector('input')?.focus();
+}
+
+function removeCustomRow(tenseKey, ri) {
+  if (!_customConj[tenseKey]) return;
+  _customConj[tenseKey].splice(ri, 1);
+  if (_customConj[tenseKey].length === 0) {
+    _customConj[tenseKey].push({ form: '', example: '', meaning: '' });
+  }
+  buildCustomConjTable();
+  autoSaveDictEntry(false);
+}
+
 function toggleTenseVisibility(key) {
   if (_hiddenTenses.has(key)) {
     _hiddenTenses.delete(key);
@@ -3553,7 +3753,6 @@ function toggleTenseVisibility(key) {
   }
   autoSaveDictEntry(false);
 }
-
 function buildConjTable(savedConj) {
   const container = document.getElementById('conj-tenses');
   const infinitive = document.getElementById('dict-es')?.value.trim() || '';
@@ -3893,9 +4092,16 @@ async function saveDictEntry() {
 
   const entry = { pos, es, jp, example, examples, trivia, nounForms, adjForms, visibility: 'members' };
   if (pos === '動詞') {
-    entry.conjugation = collectConjugation();
+    entry.conjMode = _conjMode;
     entry.hiddenTenses = Array.from(_hiddenTenses);
     entry.subtitleOverrides = Object.assign({}, _subtitleOverrides);
+    if (_conjMode === 'custom') {
+      entry.customConj = JSON.parse(JSON.stringify(_customConj));
+      entry.conjugation = {};
+    } else {
+      entry.conjugation = collectConjugation();
+      entry.customConj = {};
+    }
   }
   entry.forms = extractForms(entry.conjugation || {});
 
@@ -4054,7 +4260,8 @@ async function autoSaveDictEntry(silent) {
   const snapshot = {
     term: _dictModalTerm, sourceType: _dictModalSourceType,
     es, jp, examples: _dictExamples, trivia, pos, conj, nounForms, adjForms,
-    hiddenTenses: Array.from(_hiddenTenses), subtitleOverrides: Object.assign({}, _subtitleOverrides)
+    hiddenTenses: Array.from(_hiddenTenses), subtitleOverrides: Object.assign({}, _subtitleOverrides),
+    conjMode: _conjMode, customConj: JSON.parse(JSON.stringify(_customConj))
   };
   try { localStorage.setItem(DRAFT_DICT_KEY, JSON.stringify(snapshot)); } catch(e) {}
 
@@ -4063,8 +4270,11 @@ async function autoSaveDictEntry(silent) {
   const examples = _dictExamples.filter(e => e.es.trim());
   const example  = examples.length ? examples[0].es : '';
   const entry = {
-    pos, es, jp, example, examples, trivia, conjugation: conj, nounForms, adjForms,
-    hiddenTenses: Array.from(_hiddenTenses), subtitleOverrides: Object.assign({}, _subtitleOverrides)
+    pos, es, jp, example, examples, trivia,
+    conjugation: _conjMode === 'custom' ? {} : conj,
+    nounForms, adjForms,
+    hiddenTenses: Array.from(_hiddenTenses), subtitleOverrides: Object.assign({}, _subtitleOverrides),
+    conjMode: _conjMode, customConj: JSON.parse(JSON.stringify(_customConj))
   };
   entry.forms = typeof extractForms === 'function' ? extractForms(conj) : [];
 
@@ -4145,7 +4355,19 @@ function restoreDictDraft(draft) {
   if (draft.subtitleOverrides && typeof draft.subtitleOverrides === 'object') {
     _subtitleOverrides = Object.assign({}, draft.subtitleOverrides);
   }
-  if (draft.conj && Object.keys(draft.conj).length) buildConjTable(draft.conj);
+  if (draft.conjMode) {
+    _conjMode = draft.conjMode;
+    document.getElementById('conj-mode-btn-normal')?.classList.toggle('conj-mode-active', _conjMode === 'normal');
+    document.getElementById('conj-mode-btn-custom')?.classList.toggle('conj-mode-active', _conjMode === 'custom');
+  }
+  if (draft.customConj && typeof draft.customConj === 'object') {
+    _customConj = JSON.parse(JSON.stringify(draft.customConj));
+  }
+  if (_conjMode === 'custom') {
+    buildCustomConjTable();
+  } else if (draft.conj && Object.keys(draft.conj).length) {
+    buildConjTable(draft.conj);
+  }
 }
 
 function saveFCDraft(silent) {
