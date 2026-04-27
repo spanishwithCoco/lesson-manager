@@ -4272,12 +4272,6 @@ async function saveDictEntry() {
     saveDB(db);
   }
 
-  // ── 活用表の例文 → FC自動生成（動詞のみ） ──────────
-  let conjFCCount = 0;
-  if (pos === '動詞' && entry.conjugation) {
-    conjFCCount = await autoGenConjFCs(es, jp, entry.conjugation);
-  }
-
   // Supabaseに保存
   let sbError = null;
   try {
@@ -4295,7 +4289,6 @@ async function saveDictEntry() {
   const parts = [];
   if (wordFCAdded) parts.push(pos === '名詞' ? `名詞カード${wordFCAdded}枚` : pos === '形容詞' ? `形容詞カード${wordFCAdded}枚` : '単語カード1枚');
   if (exFCAdded) parts.push(`例文カード${exFCAdded}枚`);
-  if (conjFCCount) parts.push(`活用例文${conjFCCount}枚`);
   const fcMsg = parts.length ? `（FC: ${parts.join('・')}）` : '';
 
   if (sbError) {
