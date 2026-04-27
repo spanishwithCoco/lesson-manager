@@ -947,46 +947,13 @@ textarea.input-field { resize: vertical; min-height: 70px; }
 .tense-header {
   background: var(--surface2);
   border: 1px solid var(--border);
-  padding: 6px 10px 6px 12px;
+  padding: 6px 10px;
   font-size: 11px; color: var(--accent);
   font-family: 'DM Mono', monospace;
   font-weight: 500; letter-spacing: .04em;
   margin-top: 10px; margin-bottom: 0;
   border-radius: 6px 6px 0 0;
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
 }
-.tense-block { margin-top: 10px; }
-.tense-block.hidden { display: none; }
-.tense-note-input {
-  flex: 1; min-width: 120px;
-  padding: 3px 8px;
-  background: transparent;
-  border: none; border-bottom: 1px dashed var(--border);
-  font-family: 'Noto Sans JP', sans-serif;
-  font-size: 11px; color: var(--text);
-  outline: none;
-}
-.tense-note-input:focus { border-bottom-color: var(--accent); background: rgba(255,255,255,0.4); }
-.tense-note-input::placeholder { color: var(--muted); opacity: .7; }
-.tense-del-btn {
-  margin-left: auto; flex-shrink: 0;
-  background: none; border: 1px solid var(--border);
-  border-radius: 5px; padding: 2px 7px;
-  font-size: 10px; color: var(--muted);
-  cursor: pointer; transition: all .15s; white-space: nowrap;
-}
-.tense-del-btn:hover { border-color: var(--red,#c0392b); color: var(--red,#c0392b); }
-.tense-restore-bar {
-  display: flex; flex-wrap: wrap; gap: 6px;
-  margin-top: 8px; margin-bottom: 2px;
-}
-.tense-restore-btn {
-  padding: 4px 10px; border-radius: 6px;
-  border: 1px dashed var(--border); background: var(--surface);
-  font-size: 11px; color: var(--muted); cursor: pointer;
-  font-family: 'Noto Sans JP', sans-serif; transition: all .15s;
-}
-.tense-restore-btn:hover { border-color: var(--accent); color: var(--accent); }
 
 /* 辞書一覧 */
 .dict-item {
@@ -1683,9 +1650,7 @@ async function syncFromSupabase() {
         adjForms:  r.adj_forms  || {},
         conjugation: r.conjugation || {},
         forms: r.forms || [],
-        visibility: r.visibility || 'members',
-        hiddenTenses: (r.conjugation && r.conjugation._hiddenTenses) || [],
-        tenseNotes:   (r.conjugation && r.conjugation._tenseNotes)   || {}
+        visibility: r.visibility || 'members'
       };
     });
     db.flashcards = fcRows.map(r => ({
@@ -1753,18 +1718,13 @@ async function pushDict(entry) {
     .filter(f => f && f.trim()).map(f => f.toLowerCase().trim());
   const allForms = [...new Set([...forms, ...extraForms])];
 
-  // conjugation に _meta として hiddenTenses/tenseNotes を埋め込む（別カラム不要）
-  const conjWithMeta = Object.assign({}, entry.conjugation || {}, {
-    _hiddenTenses: entry.hiddenTenses || [],
-    _tenseNotes:   entry.tenseNotes   || {}
-  });
   await sbUpsert('dict', {
     es: entry.es, jp: entry.jp, pos: entry.pos || '',
     example: entry.example || '', trivia: entry.trivia || '',
     examples: entry.examples || [],
     noun_forms: entry.nounForms || {},
     adj_forms:  entry.adjForms  || {},
-    conjugation: conjWithMeta,
+    conjugation: entry.conjugation || {},
     forms: allForms,
     visibility: entry.visibility || 'members'
   });
@@ -1773,9 +1733,8 @@ async function deleteDict(es) {
   await sbDelete('dict', { es });
 }
 function extractForms(conjugation) {
-  const conjForms = Object.entries(conjugation || {})
-    .filter(([k]) => !k.startsWith('_'))   // _meta キーは除外
-    .map(([, v]) => (v.form || '').trim().toLowerCase())
+  const conjForms = Object.values(conjugation || {})
+    .map(v => (v.form || '').trim().toLowerCase())
     .filter(f => f.length > 0);
   return conjForms;
 }
@@ -3256,8 +3215,6 @@ function guessParticipio(infinitive) {
 }
 
 let _dictModalTerm = null; // 編集中の単語
-let _hiddenTenses = new Set(); // 非表示にした時制のキー集合
-let _tenseNotes   = {};        // 時制ごとの意味メモ {key: string}
 let _dictModalSourceType = 'word'; // 辞書登録元の種別
 let _dictExamples = []; // [{es:'', jp:''}]
 
@@ -3332,9 +3289,7 @@ function openDictModal(term, sourceType) {
     if (btn) { btn.classList.add('selected'); }
   }
 
-  // 活用表 – hidden/notes をリセットしてからビルド
-  _hiddenTenses = new Set(existing?.hiddenTenses || []);
-  _tenseNotes   = Object.assign({}, existing?.tenseNotes || {});
+  // 活用表
   buildConjTable(existing?.conjugation || {});
   // toggleConjSection は display 切替のみ（再ビルドしない）
   document.getElementById('conj-section').style.display = (existing?.pos === '動詞') ? 'block' : 'none';
@@ -3396,9 +3351,7 @@ function openDictModal(term, sourceType) {
 function closeDictModal() {
   document.getElementById('dict-modal').classList.remove('active');
   _dictModalTerm = null;
-  _dictExamples  = [];
-  _hiddenTenses  = new Set();
-  _tenseNotes    = {};
+  _dictExamples = [];
   clearDictDraft();
 }
 
@@ -3529,37 +3482,16 @@ function toggleConjSection(show) {
   }
 }
 
-function buildConjTable(savedConj, hiddenTenses) {
-  hiddenTenses = hiddenTenses || _hiddenTenses;
+function buildConjTable(savedConj) {
   const container = document.getElementById('conj-tenses');
   const infinitive = document.getElementById('dict-es')?.value.trim() || '';
   const autoGerundio   = guessGerundio(infinitive);
   const autoParticipio = guessParticipio(infinitive);
 
-  // 削除済み時制の「復元」バー
-  const hiddenList = TENSES.filter(t => hiddenTenses.has(t.key));
-  const restoreBar = hiddenList.length
-    ? `<div class="tense-restore-bar" id="tense-restore-bar">
-        <span style="font-size:10px;color:var(--muted);align-self:center">非表示：</span>
-        ${hiddenList.map(t =>
-          `<button class="tense-restore-btn" onclick="restoreTense('${t.key}')">${t.label} ＋</button>`
-        ).join('')}
-      </div>`
-    : '';
-
-  const blocks = TENSES.filter(t => !hiddenTenses.has(t.key)).map(t => {
-    // 時制ごとの保存メモを取得（_tenseNotes[key]）
-    const noteVal  = _tenseNotes[t.key] || '';
-    const notePh   = t.subtitle || '';
-    const noteHtml = `<input class="tense-note-input" id="tense-note-${t.key}"
-      value="${escHtml(noteVal)}" placeholder="${escHtml(notePh)}"
-      oninput="_tenseNotes['${t.key}']=this.value" onblur="autoSaveDictEntry(true)">`;
-    const delBtn   = `<button class="tense-del-btn" onclick="hideTense('${t.key}')">✕ 削除</button>`;
-    const header   = `<div class="tense-header">
-      <span style="flex-shrink:0">${t.label}</span>
-      ${noteHtml}
-      ${delBtn}
-    </div>`;
+  container.innerHTML = TENSES.map(t => {
+    const subtitleHtml = t.subtitle
+      ? `<span style="font-size:10px;color:var(--muted);font-family:'Noto Sans JP',sans-serif;font-weight:400;margin-left:8px">｜${t.subtitle}</span>`
+      : '';
 
     // ── 近い未来（ir a）──
     if (t.type === 'ir_a') {
@@ -3568,6 +3500,7 @@ function buildConjTable(savedConj, hiddenTenses) {
         const safeKey = t.key + '_' + pr.replace(/[^a-z]/gi,'');
         const saved = savedConj[safeKey] || {};
         const irAForm = IR_A_FORMS[pr] || '';
+        // 原形は自動入力（保存済みがあれば優先）
         const infVal = saved.form2 !== undefined ? saved.form2 : infinitive;
         return `<tr>
           <td class="conj-pron">${pr}</td>
@@ -3577,14 +3510,15 @@ function buildConjTable(savedConj, hiddenTenses) {
           <td><input class="conj-input jp-input" id="conj-jp-${safeKey}" value="${escHtml(saved.meaning||'')}" placeholder="日本語の意味" onblur="autoSaveDictEntry(false)"></td>
         </tr>`;
       }).join('');
-      return `<div class="tense-block" id="tense-block-${t.key}">
-        ${header}
-        <div class="conj-table-wrap">${hint}
+      return `
+        <div class="tense-header">${t.label}${subtitleHtml}</div>
+        <div class="conj-table-wrap">
+          ${hint}
           <table class="conj-table">
             <thead><tr><th>主語</th><th>ir a+</th><th>動詞の原形</th><th>例文（ES）</th><th>意味（JP）</th></tr></thead>
             <tbody>${rows}</tbody>
           </table>
-        </div></div>`;
+        </div>`;
     }
 
     // ── 現在完了（haber + 過去分詞）──
@@ -3604,14 +3538,15 @@ function buildConjTable(savedConj, hiddenTenses) {
           <td><input class="conj-input jp-input" id="conj-jp-${safeKey}" value="${escHtml(saved.meaning||'')}" placeholder="日本語の意味" onblur="autoSaveDictEntry(false)"></td>
         </tr>`;
       }).join('');
-      return `<div class="tense-block" id="tense-block-${t.key}">
-        ${header}
-        <div class="conj-table-wrap">${hint}
+      return `
+        <div class="tense-header">${t.label}${subtitleHtml}</div>
+        <div class="conj-table-wrap">
+          ${hint}
           <table class="conj-table">
             <thead><tr><th>主語</th><th>haber</th><th>過去分詞</th><th>例文（ES）</th><th>意味（JP）</th></tr></thead>
             <tbody>${rows}</tbody>
           </table>
-        </div></div>`;
+        </div>`;
     }
 
     // ── 進行形（estar + 動詞の進行形）──
@@ -3631,17 +3566,18 @@ function buildConjTable(savedConj, hiddenTenses) {
           <td><input class="conj-input jp-input" id="conj-jp-${safeKey}" value="${escHtml(saved.meaning||'')}" placeholder="日本語の意味" onblur="autoSaveDictEntry(false)"></td>
         </tr>`;
       }).join('');
-      return `<div class="tense-block" id="tense-block-${t.key}">
-        ${header}
-        <div class="conj-table-wrap">${hint}
+      return `
+        <div class="tense-header">${t.label}${subtitleHtml}</div>
+        <div class="conj-table-wrap">
+          ${hint}
           <table class="conj-table">
             <thead><tr><th>主語</th><th>estar</th><th>動詞の進行形</th><th>例文（ES）</th><th>意味（JP）</th></tr></thead>
             <tbody>${rows}</tbody>
           </table>
-        </div></div>`;
+        </div>`;
     }
 
-    // ── 標準活用表（現在・点過去・線過去・未来・過去未来）──
+    // ── 標準活用表（現在・点過去・線過去・未来・過去未来）＋ 自動推定ボタン ──
     const isAutoable = ['presente','preterito','imperfecto','futuro','condicional'].includes(t.key);
     const autoBtn = isAutoable
       ? `<button class="btn-small accent" onclick="autoGuessConjForms('${t.key}')" style="margin-bottom:8px;font-size:10px">✨ 活用を自動推定する</button>`
@@ -3656,20 +3592,16 @@ function buildConjTable(savedConj, hiddenTenses) {
         <td><input class="conj-input jp-input" id="conj-jp-${safeKey}" value="${escHtml(saved.meaning||'')}" placeholder="日本語の意味" onblur="autoSaveDictEntry(false)"></td>
       </tr>`;
     }).join('');
-    return `<div class="tense-block" id="tense-block-${t.key}">
-      ${header}
+    return `
+      <div class="tense-header">${t.label}${subtitleHtml}</div>
       <div class="conj-table-wrap">
         ${autoBtn}
         <table class="conj-table">
           <thead><tr><th>代名詞</th><th>活用</th><th>例文（ES）</th><th>意味（JP）</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
-      </div></div>`;
+      </div>`;
   }).join('');
-
-  container.innerHTML = restoreBar + blocks;
-}
-
 }
 
 function collectConjugation() {
@@ -3716,18 +3648,6 @@ function collectNounForms() {
 }
 
 // ── 標準活用の自動推定（AI呼び出し） ─────────────────────
-// ── 時制 削除 / 復元 ──────────────────────────────────────
-function hideTense(key) {
-  _hiddenTenses.add(key);
-  const conj = collectConjugation();
-  buildConjTable(conj, _hiddenTenses);
-}
-function restoreTense(key) {
-  _hiddenTenses.delete(key);
-  const conj = collectConjugation();
-  buildConjTable(conj, _hiddenTenses);
-}
-
 // ── ルールベース活用推定エンジン ──────────────────────────
 function guessConjForms(infinitive, tenseKey) {
   if (!infinitive) return null;
@@ -3885,14 +3805,7 @@ async function saveDictEntry() {
   const nounForms = (pos === '名詞') ? collectNounForms() : {};
   const adjForms  = (pos === '形容詞') ? collectAdjForms() : {};
 
-  // 時制ごとのメモと非表示リストを収集
-  TENSES.forEach(t => {
-    const el = document.getElementById('tense-note-' + t.key);
-    if (el) _tenseNotes[t.key] = el.value.trim();
-  });
-  const entry = { pos, es, jp, example, examples, trivia, nounForms, adjForms,
-    hiddenTenses: [..._hiddenTenses], tenseNotes: { ..._tenseNotes },
-    visibility: 'members' };
+  const entry = { pos, es, jp, example, examples, trivia, nounForms, adjForms, visibility: 'members' };
   if (pos === '動詞') entry.conjugation = collectConjugation();
   entry.forms = extractForms(entry.conjugation || {});
 
@@ -4058,15 +3971,7 @@ async function autoSaveDictEntry(silent) {
 
   const examples = _dictExamples.filter(e => e.es.trim());
   const example  = examples.length ? examples[0].es : '';
-  // 時制ごとのメモを収集
-  const currentNotes = {};
-  TENSES.forEach(t => {
-    const el = document.getElementById('tense-note-' + t.key);
-    if (el) currentNotes[t.key] = el.value.trim();
-    else if (_tenseNotes[t.key]) currentNotes[t.key] = _tenseNotes[t.key];
-  });
-  const entry = { pos, es, jp, example, examples, trivia, conjugation: conj, nounForms, adjForms,
-    hiddenTenses: [..._hiddenTenses], tenseNotes: currentNotes };
+  const entry = { pos, es, jp, example, examples, trivia, conjugation: conj, nounForms, adjForms };
   entry.forms = typeof extractForms === 'function' ? extractForms(conj) : [];
 
   // localDBに保存
