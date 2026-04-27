@@ -1458,8 +1458,9 @@ textarea.input-field { resize: vertical; min-height: 70px; }
       <!-- 形容詞変化（形容詞のみ） -->
       <div id="adj-section" style="display:none">
         <hr class="divider">
-        <div style="font-size:12px;color:var(--accent);font-family:'DM Mono',monospace;margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em">性数変化 Formas del adjetivo</div>
-        <div style="font-size:11px;color:var(--muted);margin-bottom:10px">見出し語（男性単数形）を入力すると自動で推定されます（編集可）</div>
+        <div style="font-size:12px;color:var(--accent);font-family:'DM Mono',monospace;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">性数変化 Formas del adjetivo</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:10px">上のスペイン語欄（男性単数形）から自動推定できます（編集可）</div>
+        <button class="btn-small accent" onclick="guessAdjForms(true)" style="margin-bottom:12px">✨ 自動推定する</button>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
           <div>
             <div style="font-size:11px;color:var(--accent2);font-family:'DM Mono',monospace;margin-bottom:4px">男性単数 Masc. Sg.</div>
@@ -1478,7 +1479,6 @@ textarea.input-field { resize: vertical; min-height: 70px; }
             <input class="input-field mono" id="adj-fpl" placeholder="例: preciosas" onblur="autoSaveDictEntry(false)">
           </div>
         </div>
-        <button class="btn-small" onclick="guessAdjForms()" style="margin-bottom:4px">✨ 自動推定する</button>
       </div>
 
       <!-- 活用表（動詞のみ） -->
@@ -3278,12 +3278,12 @@ function openDictModal(term, sourceType) {
   const adjFsg = document.getElementById('adj-fsg');
   const adjMpl = document.getElementById('adj-mpl');
   const adjFpl = document.getElementById('adj-fpl');
-  if (adjMsg) adjMsg.value = af.msg || '';
+  if (adjMsg) adjMsg.value = af.msg || headword || '';
   if (adjFsg) adjFsg.value = af.fsg || '';
   if (adjMpl) adjMpl.value = af.mpl || '';
   if (adjFpl) adjFpl.value = af.fpl || '';
-  // 既存データがなければ自動推定
-  if (existing?.pos === '形容詞' && !af.msg) guessAdjForms();
+  // 既存データがなければ自動推定（空欄のみ）
+  if (existing?.pos === '形容詞' && !af.fsg) guessAdjForms(false);
 
   // 自動保存データがあり、同じ単語の場合は上書き復元
   try {
@@ -3325,30 +3325,24 @@ function toggleNounSection(show) {
 
 function toggleAdjSection(show) {
   document.getElementById('adj-section').style.display = show ? 'block' : 'none';
-  if (show) guessAdjForms();
+  if (show) guessAdjForms(false); // 品詞選択時：空欄のみ自動推定
 }
 
-function guessAdjForms() {
+function guessAdjForms(forceOverwrite) {
+  // 男性単数はスペイン語入力欄から必ず引き込む
   const base = document.getElementById('dict-es')?.value.trim() || '';
   if (!base) return;
 
-  let msg = base, fsg = '', mpl = '', fpl = '';
+  let fsg = '', mpl = '', fpl = '';
 
-  // 男性形の推定: -o終わりは女性形 -a
   if (/o$/i.test(base)) {
     fsg = base.slice(0, -1) + 'a';
     mpl = base + 's';
     fpl = fsg + 's';
   } else if (/[aeiouáéíóú]$/i.test(base)) {
-    // 母音終わり（-o以外）はそのまま
-    fsg = base;
-    mpl = base + 's';
-    fpl = base + 's';
+    fsg = base; mpl = base + 's'; fpl = base + 's';
   } else {
-    // 子音終わりは同形（男女同形）
-    fsg = base;
-    mpl = base + 'es';
-    fpl = base + 'es';
+    fsg = base; mpl = base + 'es'; fpl = base + 'es';
   }
 
   const msgEl = document.getElementById('adj-msg');
@@ -3356,10 +3350,12 @@ function guessAdjForms() {
   const mplEl = document.getElementById('adj-mpl');
   const fplEl = document.getElementById('adj-fpl');
 
-  if (msgEl && !msgEl.value) msgEl.value = msg;
-  if (fsgEl) fsgEl.value = fsg;
-  if (mplEl) mplEl.value = mpl;
-  if (fplEl) fplEl.value = fpl;
+  // 男性単数は常にスペイン語欄と同期
+  if (msgEl) msgEl.value = base;
+  // その他は空のとき or 強制上書き時のみ
+  if (fsgEl && (forceOverwrite || !fsgEl.value)) fsgEl.value = fsg;
+  if (mplEl && (forceOverwrite || !mplEl.value)) mplEl.value = mpl;
+  if (fplEl && (forceOverwrite || !fplEl.value)) fplEl.value = fpl;
 }
 
 function collectAdjForms() {
@@ -3572,34 +3568,15 @@ async function saveDictEntry() {
     }
     saveDB(db);
   } else if (pos === '形容詞') {
-    // 形容詞：男性単数・女性単数・男性複数・女性複数をセットで登録
-    const adjCards = [
-      { esForm: adjForms.msg, label: '男性単数' },
-      { esForm: adjForms.fsg, label: '女性単数' },
-      { esForm: adjForms.mpl, label: '男性複数' },
-      { esForm: adjForms.fpl, label: '女性複数' },
-    ].filter(c => c.esForm);
-
-    for (const ac of adjCards) {
-      const dup = db.flashcards.find(f => f.es === ac.esForm && f.type === 'word');
-      if (dup) continue;
-      const fc = {
-        id: 'fc_adj_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
-        type: 'word', category: '',
-        es: ac.esForm, jp: jp,
-        memo: `[形容詞] ${ac.label}`,
-        created: todayStr()
-      };
-      db.flashcards.push(fc);
-      try { await pushFC(fc); } catch(e) {}
-      wordFCAdded++;
-    }
-    // 入力がない場合は見出し語でカード作成
-    if (wordFCAdded === 0 && es && jp) {
+    // 形容詞：スペイン語入力欄の男性単数形で1枚のみ登録
+    if (es && jp) {
       const dup = db.flashcards.find(f => f.es === es && f.type === 'word');
       if (!dup) {
-        const fc = { id: 'fc_word_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
-          type: 'word', category: '', es, jp, memo: '[形容詞]', created: todayStr() };
+        const fc = {
+          id: 'fc_adj_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+          type: 'word', category: '', es, jp,
+          memo: '[形容詞]', created: todayStr()
+        };
         db.flashcards.push(fc);
         try { await pushFC(fc); } catch(e) {}
         wordFCAdded = 1;
@@ -3769,8 +3746,7 @@ function restoreDictDraft(draft) {
     if (document.getElementById('adj-fsg')) document.getElementById('adj-fsg').value = af.fsg || '';
     if (document.getElementById('adj-mpl')) document.getElementById('adj-mpl').value = af.mpl || '';
     if (document.getElementById('adj-fpl')) document.getElementById('adj-fpl').value = af.fpl || '';
-  }
-  if (draft.nounForms) {
+  }  if (draft.nounForms) {
     const nf = draft.nounForms;
     _nounGender = nf.gender || '';
     if (document.getElementById('noun-sg-def'))   document.getElementById('noun-sg-def').value   = nf.sgDef   || '';
@@ -3984,7 +3960,9 @@ async function renderDictList(doSync) {
   container.innerHTML = page.map(([term, d]) => {
     const vis = d.visibility || 'members';
     const nf = d.nounForms || {};
-    const hasNounForms = d.pos === '名詞' && (nf.sgDef || nf.plDef || nf.sgIndef || nf.plIndef);
+    const af = d.adjForms  || {};
+    const hasNounForms = d.pos === '名詞' && (nf.sgDef || nf.plDef);
+    const hasAdjForms  = d.pos === '形容詞' && (af.msg || af.fsg || af.mpl || af.fpl);
     const genderLabel = nf.gender === 'm' ? '男性名詞' : nf.gender === 'f' ? '女性名詞' : '';
     const genderColor = nf.gender === 'm' ? 'var(--accent2)' : 'var(--accent)';
     const genderBg    = nf.gender === 'm' ? 'rgba(61,107,140,0.1)' : 'rgba(200,98,42,0.1)';
@@ -3993,11 +3971,25 @@ async function renderDictList(doSync) {
     const nounFormsHtml = hasNounForms ? `
       <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center">
         ${genderLabel ? `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${genderBg};color:${genderColor};font-family:'DM Mono',monospace">${genderLabel}</span>` : ''}
-        ${nf.sgDef   ? `<span style="font-size:12px"><span style="color:var(--muted);font-size:10px;font-family:'DM Mono',monospace">定単</span> <span style="font-family:'DM Mono',monospace;color:var(--accent2)">${escHtml(nf.sgDef)}</span></span>` : ''}
-        ${nf.plDef   ? `<span style="font-size:12px"><span style="color:var(--muted);font-size:10px;font-family:'DM Mono',monospace">定複</span> <span style="font-family:'DM Mono',monospace;color:var(--accent2)">${escHtml(nf.plDef)}</span></span>` : ''}
-        ${nf.sgIndef ? `<span style="font-size:12px"><span style="color:var(--muted);font-size:10px;font-family:'DM Mono',monospace">不定単</span> <span style="font-family:'DM Mono',monospace;color:var(--accent)">${escHtml(nf.sgIndef)}</span></span>` : ''}
-        ${nf.plIndef ? `<span style="font-size:12px"><span style="color:var(--muted);font-size:10px;font-family:'DM Mono',monospace">不定複</span> <span style="font-family:'DM Mono',monospace;color:var(--accent)">${escHtml(nf.plIndef)}</span></span>` : ''}
+        ${nf.sgDef ? `<span style="font-size:12px"><span style="color:var(--muted);font-size:10px;font-family:'DM Mono',monospace">定単</span> <span style="font-family:'DM Mono',monospace;color:var(--accent2)">${escHtml(nf.sgDef)}</span></span>` : ''}
+        ${nf.plDef ? `<span style="font-size:12px"><span style="color:var(--muted);font-size:10px;font-family:'DM Mono',monospace">定複</span> <span style="font-family:'DM Mono',monospace;color:var(--accent2)">${escHtml(nf.plDef)}</span></span>` : ''}
       </div>` : '';
+
+    // 形容詞フォーム表示HTML
+    const adjFormsHtml = hasAdjForms ? `
+      <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center">
+        ${af.msg ? `<span style="font-size:12px"><span style="color:var(--muted);font-size:10px;font-family:'DM Mono',monospace">男単</span> <span style="font-family:'DM Mono',monospace;color:var(--accent2)">${escHtml(af.msg)}</span></span>` : ''}
+        ${af.fsg ? `<span style="font-size:12px"><span style="color:var(--muted);font-size:10px;font-family:'DM Mono',monospace">女単</span> <span style="font-family:'DM Mono',monospace;color:var(--accent2)">${escHtml(af.fsg)}</span></span>` : ''}
+        ${af.mpl ? `<span style="font-size:12px"><span style="color:var(--muted);font-size:10px;font-family:'DM Mono',monospace">男複</span> <span style="font-family:'DM Mono',monospace;color:var(--accent2)">${escHtml(af.mpl)}</span></span>` : ''}
+        ${af.fpl ? `<span style="font-size:12px"><span style="color:var(--muted);font-size:10px;font-family:'DM Mono',monospace">女複</span> <span style="font-family:'DM Mono',monospace;color:var(--accent2)">${escHtml(af.fpl)}</span></span>` : ''}
+      </div>` : '';
+
+    // 例文表示HTML（名詞・形容詞問わず共通）
+    const exs = (d.examples || []).filter(e => e.es) ;
+    const exHtml = exs.length ? `
+      <div style="margin-top:8px">${exs.map(ex =>
+        `<div style="font-size:12px;color:var(--muted);font-family:'DM Mono',monospace">${escHtml(ex.es)}${ex.jp ? ` <span style="font-family:'Noto Sans JP',sans-serif">${escHtml(ex.jp)}</span>` : ''}</div>`
+      ).join('')}</div>` : (d.example ? `<div style="font-size:12px;color:var(--muted);margin-top:6px">${escHtml(d.example)}</div>` : '');
 
     return `
     <div class="dict-item">
@@ -4013,12 +4005,8 @@ async function renderDictList(doSync) {
         <button class="btn-small" onclick="openDictModal('${term.replace(/'/g,"\\'")}')">編集</button>
         <button class="btn-small" style="color:var(--red);border-color:var(--red)" onclick="deleteDictEntry('${term.replace(/'/g,"\\'")}')">削除</button>
       </div>
-      ${nounFormsHtml}
-      ${!hasNounForms && d.example ? `<div style="font-size:12px;color:var(--muted);margin-top:6px">例: ${escHtml(d.example)}</div>` : ''}
-      ${hasNounForms && (d.examples?.length || d.example) ? (() => {
-        const exs = d.examples?.filter(e=>e.es) || (d.example ? [{es:d.example,jp:''}] : []);
-        return exs.length ? `<div style="margin-top:8px">${exs.map(ex=>`<div style="font-size:12px;color:var(--muted);font-family:'DM Mono',monospace">${escHtml(ex.es)}${ex.jp?` <span style="font-family:'Noto Sans JP',sans-serif;color:var(--muted)">${escHtml(ex.jp)}</span>`:''}</div>`).join('')}</div>` : '';
-      })() : ''}
+      ${nounFormsHtml}${adjFormsHtml}
+      ${exHtml}
       ${d.trivia ? `<div style="font-size:11px;color:var(--muted);margin-top:6px;padding:6px 10px;background:rgba(200,98,42,0.05);border-left:2px solid var(--accent);border-radius:0 6px 6px 0">💡 ${escHtml(d.trivia)}</div>` : ''}
       ${d.conjugation && Object.keys(d.conjugation).length ? `<div style="font-size:11px;color:var(--accent2);margin-top:4px">活用表あり</div>` : ''}
     </div>`;
