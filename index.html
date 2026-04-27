@@ -1788,6 +1788,8 @@ async function syncFromSupabase() {
         nounForms: r.noun_forms || {},
         adjForms:  r.adj_forms  || {},
         conjugation: r.conjugation || {},
+        conjMode: r.conj_mode || 'normal',
+        customConj: r.custom_conj || {},
         forms: r.forms || [],
         visibility: r.visibility || 'members'
       };
@@ -1849,7 +1851,7 @@ async function pushVocab(type, term, meaning) {
   await sbUpsert('vocab', { term, meaning, type });
 }
 async function pushDict(entry) {
-  const forms = extractForms(entry.conjugation || {});
+  const forms = extractForms(entry.conjugation || {}, entry.customConj || {});
   // 名詞フォームも forms 配列に追加（照合用）
   const nf = entry.nounForms || {};
   const af = entry.adjForms  || {};
@@ -1864,6 +1866,8 @@ async function pushDict(entry) {
     noun_forms: entry.nounForms || {},
     adj_forms:  entry.adjForms  || {},
     conjugation: entry.conjugation || {},
+    conj_mode: entry.conjMode || 'normal',
+    custom_conj: entry.customConj || {},
     forms: allForms,
     visibility: entry.visibility || 'members'
   });
@@ -1871,11 +1875,23 @@ async function pushDict(entry) {
 async function deleteDict(es) {
   await sbDelete('dict', { es });
 }
-function extractForms(conjugation) {
+function extractForms(conjugation, customConj) {
   const conjForms = Object.values(conjugation || {})
     .map(v => (v.form || '').trim().toLowerCase())
     .filter(f => f.length > 0);
-  return conjForms;
+  // カスタム活用形（customConj）のform値も抽出
+  const customForms = [];
+  if (customConj && typeof customConj === 'object') {
+    for (const rows of Object.values(customConj)) {
+      if (Array.isArray(rows)) {
+        for (const row of rows) {
+          const f = (row.form || '').trim().toLowerCase();
+          if (f) customForms.push(f);
+        }
+      }
+    }
+  }
+  return [...new Set([...conjForms, ...customForms])];
 }
 async function pushFC(fc) {
   await sbUpsert('flashcards', {
@@ -1904,7 +1920,7 @@ function findDictEntry(word) {
     if (es.toLowerCase() === w) return entry;
   }
   for (const [es, entry] of Object.entries(dict)) {
-    const forms = entry.forms || extractForms(entry.conjugation || {});
+    const forms = entry.forms || extractForms(entry.conjugation || {}, entry.customConj || {});
     // 形容詞フォームも照合
     const adjForms = entry.adjForms ? Object.values(entry.adjForms).filter(f => f) : [];
     if (forms.some(f => f === w) || adjForms.some(f => f.toLowerCase() === w)) return entry;
@@ -1937,7 +1953,11 @@ function findDictEntryBroad(word) {
     const af = entry.adjForms  || {};
 
     // forms配列（Supabaseから取得した冠詞付き形が入っている）も含めて照合
-    const formsArr = (entry.forms || []).map(f => f.toLowerCase());
+    // カスタム活用のform値もリアルタイムで照合（formsキャッシュが古い場合の保険）
+    const formsArr = [
+      ...(entry.forms || []).map(f => f.toLowerCase()),
+      ...extractForms({}, entry.customConj || {})
+    ];
 
     const nounVariants = [
       es, nf.sgDef, nf.plDef,
@@ -4153,7 +4173,7 @@ async function saveDictEntry() {
       entry.customConj = {};
     }
   }
-  entry.forms = extractForms(entry.conjugation || {});
+  entry.forms = extractForms(entry.conjugation || {}, entry.customConj || {});
 
   const db = getDB();
   if (!db.dict) db.dict = {};
@@ -4328,7 +4348,7 @@ async function autoSaveDictEntry(silent) {
     hiddenTenses: Array.from(_hiddenTenses), subtitleOverrides: Object.assign({}, _subtitleOverrides),
     conjMode: _conjMode, customConj: JSON.parse(JSON.stringify(_customConj))
   };
-  entry.forms = typeof extractForms === 'function' ? extractForms(conj) : [];
+  entry.forms = typeof extractForms === 'function' ? extractForms(conj, _customConj) : [];
 
   // localDBに保存
   const db = getDB();
@@ -4665,7 +4685,7 @@ async function renderDictList(doSync) {
       ${nounFormsHtml}${adjFormsHtml}
       ${exHtml}
       ${d.trivia ? `<div style="font-size:11px;color:var(--muted);margin-top:6px;padding:6px 10px;background:rgba(200,98,42,0.05);border-left:2px solid var(--accent);border-radius:0 6px 6px 0">💡 ${escHtml(d.trivia)}</div>` : ''}
-      ${d.conjugation && Object.keys(d.conjugation).length ? `<div style="font-size:11px;color:var(--accent2);margin-top:4px">活用表あり</div>` : ''}
+      ${(d.conjugation && Object.keys(d.conjugation).length) || (d.conjMode === 'custom' && d.customConj && Object.values(d.customConj).some(rows => Array.isArray(rows) && rows.some(r => r.form))) ? `<div style="font-size:11px;color:var(--accent2);margin-top:4px">${d.conjMode === 'custom' ? '活用表あり（カスタム）' : '活用表あり'}</div>` : ''}
     </div>`;
   }).join('');
 
