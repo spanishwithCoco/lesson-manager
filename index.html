@@ -1644,7 +1644,7 @@ async function syncFromSupabase() {
         examples: r.examples || (r.example ? [{ es: r.example, jp: '' }] : []),
         trivia: r.trivia || '',
         nounForms: r.noun_forms || {},
-        adjForms: r.adj_forms || {},
+        adjForms:  r.adj_forms  || {},
         conjugation: r.conjugation || {},
         forms: r.forms || [],
         visibility: r.visibility || 'members'
@@ -1708,14 +1708,21 @@ async function pushVocab(type, term, meaning) {
 }
 async function pushDict(entry) {
   const forms = extractForms(entry.conjugation || {});
+  // 名詞フォームも forms 配列に追加（照合用）
+  const nf = entry.nounForms || {};
+  const af = entry.adjForms  || {};
+  const extraForms = [nf.sgDef, nf.plDef, af.msg, af.fsg, af.mpl, af.fpl]
+    .filter(f => f && f.trim()).map(f => f.toLowerCase().trim());
+  const allForms = [...new Set([...forms, ...extraForms])];
+
   await sbUpsert('dict', {
     es: entry.es, jp: entry.jp, pos: entry.pos || '',
     example: entry.example || '', trivia: entry.trivia || '',
     examples: entry.examples || [],
     noun_forms: entry.nounForms || {},
-    adj_forms: entry.adjForms || {},
+    adj_forms:  entry.adjForms  || {},
     conjugation: entry.conjugation || {},
-    forms,
+    forms: allForms,
     visibility: entry.visibility || 'members'
   });
 }
@@ -1768,7 +1775,7 @@ function findDictEntry(word) {
 function findDictEntryBroad(word) {
   if (!word) return null;
   const w = word.toLowerCase().trim();
-  // まず通常の照合
+  // まず通常の照合（見出し語・活用形リスト）
   const direct = findDictEntry(w);
   if (direct) return direct;
 
@@ -1782,11 +1789,18 @@ function findDictEntryBroad(word) {
     if (entry2) return entry2;
   }
 
-  // 名詞フォーム（定冠詞・複数形）との照合
+  // 名詞フォーム（定冠詞・複数形）との照合 + forms 配列との照合
   for (const [es, entry] of Object.entries(dict)) {
     const nf = entry.nounForms || {};
+    const af = entry.adjForms  || {};
+
+    // forms配列（Supabaseから取得した冠詞付き形が入っている）も含めて照合
+    const formsArr = (entry.forms || []).map(f => f.toLowerCase());
+
     const nounVariants = [
-      es, nf.sgDef, nf.plDef
+      es, nf.sgDef, nf.plDef,
+      af.msg, af.fsg, af.mpl, af.fpl,
+      ...formsArr
     ].filter(Boolean).map(s => s.toLowerCase());
 
     // 各バリアントの冠詞なし形も追加
