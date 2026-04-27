@@ -1397,7 +1397,7 @@ textarea.input-field { resize: vertical; min-height: 70px; }
       <!-- スペイン語 -->
       <div class="input-group">
         <label class="input-label">スペイン語</label>
-        <input type="text" class="input-field" id="dict-es" placeholder="例: hablar">
+        <input type="text" class="input-field" id="dict-es" placeholder="例: hablar" oninput="onDictEsInput(this.value)">
       </div>
       <!-- 日本語 -->
       <div class="input-group">
@@ -1484,7 +1484,10 @@ textarea.input-field { resize: vertical; min-height: 70px; }
       <!-- 活用表（動詞のみ） -->
       <div id="conj-section" style="display:none">
         <hr class="divider">
-        <div style="font-size:12px;color:var(--accent);font-family:'DM Mono',monospace;margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em">活用表 Conjugación</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:12px;color:var(--accent);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.05em">活用表 Conjugación</div>
+          <div style="font-size:12px;color:var(--muted)">原形：<span id="conj-infinitive-display" style="font-family:'DM Mono',monospace;color:var(--accent2)">—</span></div>
+        </div>
         <div id="conj-tenses"><!-- JS --></div>
       </div>
     </div>
@@ -3163,13 +3166,53 @@ function switchLVTab(tab) {
 // 辞書登録モーダル
 // ═══════════════════════════════════════════════
 const TENSES = [
-  { key: 'presente',     label: '現在 Presente' },
-  { key: 'preterito',    label: '点過去 Pretérito' },
-  { key: 'imperfecto',   label: '線過去 Imperfecto' },
-  { key: 'futuro',       label: '未来 Futuro' },
-  { key: 'condicional',  label: '過去未来 Condicional' },
+  { key: 'presente',    label: '現在（Presente）',                           subtitle: '',                                              type: 'standard' },
+  { key: 'preterito',   label: '点過去（Pretérito）',                         subtitle: '〜した',                                        type: 'standard' },
+  { key: 'imperfecto',  label: '線過去（Imperfecto）',                         subtitle: '〜してた',                                      type: 'standard' },
+  { key: 'ir_a',        label: '近い未来（ir a + 動詞の原形）',                subtitle: '（これから）〜する／〜する予定',                 type: 'ir_a'     },
+  { key: 'perfecto',    label: '現在完了（haber + 過去分詞）',                 subtitle: '〜したことがある',                              type: 'perfecto' },
+  { key: 'gerundio',    label: '進行形（estar + 動詞の進行形）',               subtitle: '〜している',                                    type: 'gerundio' },
+  { key: 'futuro',      label: '未来（Futuro）',                               subtitle: '〜だろう（推量）',                              type: 'standard' },
+  { key: 'condicional', label: '過去未来（Condicional）',                      subtitle: '〜したいのですが（丁寧）／もし〜なら（仮定）',   type: 'standard' },
 ];
+// ir a の活用（固定）
+const IR_A_FORMS = { yo:'voy a', tú:'vas a', usted:'va a', 'él/ella':'va a', nosotros:'vamos a', ustedes:'van a', 'ellos/ellas':'van a' };
+// haber の活用（固定）
+const HABER_FORMS = { yo:'he', tú:'has', usted:'ha', 'él/ella':'ha', nosotros:'hemos', ustedes:'han', 'ellos/ellas':'han' };
+// estar の活用（固定）
+const ESTAR_FORMS = { yo:'estoy', tú:'estás', usted:'está', 'él/ella':'está', nosotros:'estamos', ustedes:'están', 'ellos/ellas':'están' };
+
 const PRONOUNS = ['yo', 'tú', 'usted', 'él/ella', 'nosotros', 'ustedes', 'ellos/ellas'];
+
+// 動詞の原形から進行形（gerundio）を自動推測
+function guessGerundio(infinitive) {
+  if (!infinitive) return '';
+  const v = infinitive.trim().toLowerCase();
+  // -ir/-er → -iendo, -ar → -ando（不規則は後で手動修正）
+  // 母音語幹 -er/-ir（語幹末が母音）→ -yendo（例: leer→leyendo）
+  if (/[aeiou]er$/i.test(v)) {
+    const stem = v.slice(0, -2);
+    return stem + 'yendo';
+  }
+  if (/[aeiou]ir$/i.test(v)) {
+    const stem = v.slice(0, -2);
+    return stem + 'yendo';
+  }
+  if (/ar$/i.test(v)) return v.slice(0, -2) + 'ando';
+  if (/er$/i.test(v)) return v.slice(0, -2) + 'iendo';
+  if (/ir$/i.test(v)) return v.slice(0, -2) + 'iendo';
+  return '';
+}
+
+// 動詞の原形から過去分詞（participio）を自動推測
+function guessParticipio(infinitive) {
+  if (!infinitive) return '';
+  const v = infinitive.trim().toLowerCase();
+  if (/ar$/i.test(v)) return v.slice(0, -2) + 'ado';
+  if (/er$/i.test(v)) return v.slice(0, -2) + 'ido';
+  if (/ir$/i.test(v)) return v.slice(0, -2) + 'ido';
+  return '';
+}
 
 let _dictModalTerm = null; // 編集中の単語
 let _dictModalSourceType = 'word'; // 辞書登録元の種別
@@ -3248,7 +3291,12 @@ function openDictModal(term, sourceType) {
 
   // 活用表
   buildConjTable(existing?.conjugation || {});
-  toggleConjSection(existing?.pos === '動詞');
+  // toggleConjSection は display 切替のみ（再ビルドしない）
+  document.getElementById('conj-section').style.display = (existing?.pos === '動詞') ? 'block' : 'none';
+  if (existing?.pos === '動詞') {
+    const display = document.getElementById('conj-infinitive-display');
+    if (display) display.textContent = headword || '—';
+  }
   toggleNounSection(existing?.pos === '名詞');
   toggleAdjSection(existing?.pos === '形容詞');
 
@@ -3313,7 +3361,17 @@ function selectPOS(btn) {
   document.querySelectorAll('.pos-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
   const pos = btn.dataset.pos;
-  toggleConjSection(pos === '動詞');
+  if (pos === '動詞') {
+    // 活用表を最新の原形で再ビルドしてから表示
+    const conj = (typeof collectConjugation === 'function') ? {} : {};
+    buildConjTable(conj);
+    document.getElementById('conj-section').style.display = 'block';
+    const infinitive = document.getElementById('dict-es')?.value.trim() || '';
+    const display = document.getElementById('conj-infinitive-display');
+    if (display) display.textContent = infinitive || '—';
+  } else {
+    document.getElementById('conj-section').style.display = 'none';
+  }
   toggleNounSection(pos === '名詞');
   toggleAdjSection(pos === '形容詞');
 }
@@ -3414,32 +3472,136 @@ function selectNounGender(gender) {
 
 function toggleConjSection(show) {
   document.getElementById('conj-section').style.display = show ? 'block' : 'none';
+  if (show) {
+    const infinitive = document.getElementById('dict-es')?.value.trim() || '';
+    const display = document.getElementById('conj-infinitive-display');
+    if (display) display.textContent = infinitive || '—';
+    // 活用表を現在の savedConj で再ビルド（原形自動入力のため）
+    const conj = (typeof collectConjugation === 'function') ? collectConjugation() : {};
+    buildConjTable(conj);
+  }
 }
 
 function buildConjTable(savedConj) {
   const container = document.getElementById('conj-tenses');
-  container.innerHTML = TENSES.map(t => `
-    <div class="tense-header">${t.label}</div>
-    <div class="conj-table-wrap">
-      <table class="conj-table">
-        <thead><tr>
-          <th>代名詞</th><th>活用</th><th>例文（ES）</th><th>意味（JP）</th>
-        </tr></thead>
-        <tbody>
-          ${PRONOUNS.map(pr => {
-            const safeKey = t.key + '_' + pr.replace(/[^a-z]/gi,'');
-            const saved = savedConj[safeKey] || {};
-            return `<tr>
-              <td class="conj-pron">${pr}</td>
-              <td><input class="conj-input" id="conj-form-${safeKey}" value="${escHtml(saved.form||'')}" placeholder="活用形" onblur="autoSaveDictEntry(false)"></td>
-              <td><input class="conj-input" id="conj-ex-${safeKey}" value="${escHtml(saved.example||'')}" placeholder="例文" onblur="autoSaveDictEntry(false)"></td>
-              <td><input class="conj-input jp-input" id="conj-jp-${safeKey}" value="${escHtml(saved.meaning||'')}" placeholder="日本語の意味" onblur="autoSaveDictEntry(false)"></td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
-    </div>
-  `).join('');
+  const infinitive = document.getElementById('dict-es')?.value.trim() || '';
+  const autoGerundio   = guessGerundio(infinitive);
+  const autoParticipio = guessParticipio(infinitive);
+
+  container.innerHTML = TENSES.map(t => {
+    const subtitleHtml = t.subtitle
+      ? `<span style="font-size:10px;color:var(--muted);font-family:'Noto Sans JP',sans-serif;font-weight:400;margin-left:8px">｜${t.subtitle}</span>`
+      : '';
+
+    // ── 近い未来（ir a）──
+    if (t.type === 'ir_a') {
+      const hint = `<div style="font-size:11px;color:var(--muted);margin-bottom:8px">動詞の原形は自動で入力されます（編集可）</div>`;
+      const rows = PRONOUNS.map(pr => {
+        const safeKey = t.key + '_' + pr.replace(/[^a-z]/gi,'');
+        const saved = savedConj[safeKey] || {};
+        const irAForm = IR_A_FORMS[pr] || '';
+        // 原形は自動入力（保存済みがあれば優先）
+        const infVal = saved.form2 !== undefined ? saved.form2 : infinitive;
+        return `<tr>
+          <td class="conj-pron">${pr}</td>
+          <td style="background:var(--surface2);padding:4px 8px;border:1px solid var(--border);font-family:'DM Mono',monospace;font-size:12px;color:var(--accent2);white-space:nowrap">${irAForm}</td>
+          <td><input class="conj-input" id="conj-inf-${safeKey}" value="${escHtml(infVal)}" placeholder="動詞の原形" onblur="autoSaveDictEntry(false)"></td>
+          <td><input class="conj-input" id="conj-ex-${safeKey}" value="${escHtml(saved.example||'')}" placeholder="例文" onblur="autoSaveDictEntry(false)"></td>
+          <td><input class="conj-input jp-input" id="conj-jp-${safeKey}" value="${escHtml(saved.meaning||'')}" placeholder="日本語の意味" onblur="autoSaveDictEntry(false)"></td>
+        </tr>`;
+      }).join('');
+      return `
+        <div class="tense-header">${t.label}${subtitleHtml}</div>
+        <div class="conj-table-wrap">
+          ${hint}
+          <table class="conj-table">
+            <thead><tr><th>主語</th><th>ir a+</th><th>動詞の原形</th><th>例文（ES）</th><th>意味（JP）</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    }
+
+    // ── 現在完了（haber + 過去分詞）──
+    if (t.type === 'perfecto') {
+      const hint = `<div style="font-size:11px;color:var(--muted);margin-bottom:4px">💡 -ar → <strong>-ado</strong>　-er / -ir → <strong>-ido</strong>（不規則は手動修正）</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px">過去分詞は自動推測されます（編集可）</div>`;
+      const rows = PRONOUNS.map(pr => {
+        const safeKey = t.key + '_' + pr.replace(/[^a-z]/gi,'');
+        const saved = savedConj[safeKey] || {};
+        const haberForm = HABER_FORMS[pr] || '';
+        const partVal = saved.form2 !== undefined ? saved.form2 : autoParticipio;
+        return `<tr>
+          <td class="conj-pron">${pr}</td>
+          <td style="background:var(--surface2);padding:4px 8px;border:1px solid var(--border);font-family:'DM Mono',monospace;font-size:12px;color:var(--accent2);white-space:nowrap">${haberForm}</td>
+          <td><input class="conj-input" id="conj-part-${safeKey}" value="${escHtml(partVal)}" placeholder="過去分詞" onblur="autoSaveDictEntry(false)"></td>
+          <td><input class="conj-input" id="conj-ex-${safeKey}" value="${escHtml(saved.example||'')}" placeholder="例文" onblur="autoSaveDictEntry(false)"></td>
+          <td><input class="conj-input jp-input" id="conj-jp-${safeKey}" value="${escHtml(saved.meaning||'')}" placeholder="日本語の意味" onblur="autoSaveDictEntry(false)"></td>
+        </tr>`;
+      }).join('');
+      return `
+        <div class="tense-header">${t.label}${subtitleHtml}</div>
+        <div class="conj-table-wrap">
+          ${hint}
+          <table class="conj-table">
+            <thead><tr><th>主語</th><th>haber</th><th>過去分詞</th><th>例文（ES）</th><th>意味（JP）</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    }
+
+    // ── 進行形（estar + 動詞の進行形）──
+    if (t.type === 'gerundio') {
+      const hint = `<div style="font-size:11px;color:var(--muted);margin-bottom:4px">💡 -ar → <strong>-ando</strong>　-er / -ir → <strong>-iendo</strong>（不規則は手動修正）</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px">動詞の進行形は自動推測されます（編集可）</div>`;
+      const rows = PRONOUNS.map(pr => {
+        const safeKey = t.key + '_' + pr.replace(/[^a-z]/gi,'');
+        const saved = savedConj[safeKey] || {};
+        const estarForm = ESTAR_FORMS[pr] || '';
+        const gerVal = saved.form2 !== undefined ? saved.form2 : autoGerundio;
+        return `<tr>
+          <td class="conj-pron">${pr}</td>
+          <td style="background:var(--surface2);padding:4px 8px;border:1px solid var(--border);font-family:'DM Mono',monospace;font-size:12px;color:var(--accent2);white-space:nowrap">${estarForm}</td>
+          <td><input class="conj-input" id="conj-ger-${safeKey}" value="${escHtml(gerVal)}" placeholder="進行形" onblur="autoSaveDictEntry(false)"></td>
+          <td><input class="conj-input" id="conj-ex-${safeKey}" value="${escHtml(saved.example||'')}" placeholder="例文" onblur="autoSaveDictEntry(false)"></td>
+          <td><input class="conj-input jp-input" id="conj-jp-${safeKey}" value="${escHtml(saved.meaning||'')}" placeholder="日本語の意味" onblur="autoSaveDictEntry(false)"></td>
+        </tr>`;
+      }).join('');
+      return `
+        <div class="tense-header">${t.label}${subtitleHtml}</div>
+        <div class="conj-table-wrap">
+          ${hint}
+          <table class="conj-table">
+            <thead><tr><th>主語</th><th>estar</th><th>動詞の進行形</th><th>例文（ES）</th><th>意味（JP）</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    }
+
+    // ── 標準活用表（現在・点過去・線過去・未来・過去未来）＋ 自動推定ボタン ──
+    const isAutoable = ['presente','preterito','imperfecto','futuro','condicional'].includes(t.key);
+    const autoBtn = isAutoable
+      ? `<button class="btn-small accent" onclick="autoGuessConjForms('${t.key}')" style="margin-bottom:8px;font-size:10px">✨ 活用を自動推定する</button>`
+      : '';
+    const rows = PRONOUNS.map(pr => {
+      const safeKey = t.key + '_' + pr.replace(/[^a-z]/gi,'');
+      const saved = savedConj[safeKey] || {};
+      return `<tr>
+        <td class="conj-pron">${pr}</td>
+        <td><input class="conj-input" id="conj-form-${safeKey}" value="${escHtml(saved.form||'')}" placeholder="活用形" onblur="autoSaveDictEntry(false)"></td>
+        <td><input class="conj-input" id="conj-ex-${safeKey}" value="${escHtml(saved.example||'')}" placeholder="例文" onblur="autoSaveDictEntry(false)"></td>
+        <td><input class="conj-input jp-input" id="conj-jp-${safeKey}" value="${escHtml(saved.meaning||'')}" placeholder="日本語の意味" onblur="autoSaveDictEntry(false)"></td>
+      </tr>`;
+    }).join('');
+    return `
+      <div class="tense-header">${t.label}${subtitleHtml}</div>
+      <div class="conj-table-wrap">
+        ${autoBtn}
+        <table class="conj-table">
+          <thead><tr><th>代名詞</th><th>活用</th><th>例文（ES）</th><th>意味（JP）</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  }).join('');
 }
 
 function collectConjugation() {
@@ -3447,10 +3609,31 @@ function collectConjugation() {
   TENSES.forEach(t => {
     PRONOUNS.forEach(pr => {
       const safeKey = t.key + '_' + pr.replace(/[^a-z]/gi,'');
-      const form    = document.getElementById('conj-form-' + safeKey)?.value.trim() || '';
-      const ex      = document.getElementById('conj-ex-'   + safeKey)?.value.trim() || '';
-      const meaning = document.getElementById('conj-jp-'   + safeKey)?.value.trim() || '';
-      if (form || ex || meaning) conj[safeKey] = { form, example: ex, meaning };
+
+      if (t.type === 'ir_a') {
+        const form2   = document.getElementById('conj-inf-'  + safeKey)?.value.trim() || '';
+        const ex      = document.getElementById('conj-ex-'   + safeKey)?.value.trim() || '';
+        const meaning = document.getElementById('conj-jp-'   + safeKey)?.value.trim() || '';
+        const irAForm = IR_A_FORMS[pr] || '';
+        if (form2 || ex || meaning) conj[safeKey] = { form: irAForm + ' ' + form2, form2, example: ex, meaning };
+      } else if (t.type === 'perfecto') {
+        const form2   = document.getElementById('conj-part-' + safeKey)?.value.trim() || '';
+        const ex      = document.getElementById('conj-ex-'   + safeKey)?.value.trim() || '';
+        const meaning = document.getElementById('conj-jp-'   + safeKey)?.value.trim() || '';
+        const haberF  = HABER_FORMS[pr] || '';
+        if (form2 || ex || meaning) conj[safeKey] = { form: haberF + ' ' + form2, form2, example: ex, meaning };
+      } else if (t.type === 'gerundio') {
+        const form2   = document.getElementById('conj-ger-'  + safeKey)?.value.trim() || '';
+        const ex      = document.getElementById('conj-ex-'   + safeKey)?.value.trim() || '';
+        const meaning = document.getElementById('conj-jp-'   + safeKey)?.value.trim() || '';
+        const estarF  = ESTAR_FORMS[pr] || '';
+        if (form2 || ex || meaning) conj[safeKey] = { form: estarF + ' ' + form2, form2, example: ex, meaning };
+      } else {
+        const form    = document.getElementById('conj-form-' + safeKey)?.value.trim() || '';
+        const ex      = document.getElementById('conj-ex-'   + safeKey)?.value.trim() || '';
+        const meaning = document.getElementById('conj-jp-'   + safeKey)?.value.trim() || '';
+        if (form || ex || meaning) conj[safeKey] = { form, example: ex, meaning };
+      }
     });
   });
   return conj;
@@ -3464,7 +3647,86 @@ function collectNounForms() {
   };
 }
 
-// ── 活用表例文 → フラッシュカード自動生成 ──────────────
+// ── 標準活用の自動推定（AI呼び出し） ─────────────────────
+async function autoGuessConjForms(tenseKey) {
+  const infinitive = document.getElementById('dict-es')?.value.trim();
+  if (!infinitive) { toast('先にスペイン語欄に動詞の原形を入力してください'); return; }
+
+  const tense = TENSES.find(t => t.key === tenseKey);
+  if (!tense) return;
+
+  toast('🤖 活用を推定中...', 5000);
+
+  const prompt = `スペイン語の動詞「${infinitive}」の${tense.label}の活用形を、以下のJSONフォーマットで返してください。
+代名詞は ["yo","tú","usted","él/ella","nosotros","ustedes","ellos/ellas"] です。
+JSONのみ返してください（説明不要）:
+{"yo":"","tú":"","usted":"","él/ella":"","nosotros":"","ustedes":"","ellos/ellas":""}`;
+
+  let forms = null;
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 300,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await resp.json();
+    const text = (data.content || []).map(c => c.text || '').join('');
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) forms = JSON.parse(jsonMatch[0]);
+  } catch(e) {
+    toast('推定に失敗しました。手動で入力してください。', 3000);
+    console.error(e); return;
+  }
+
+  if (!forms) { toast('推定結果が取得できませんでした', 3000); return; }
+
+  // フォームに書き込む（空欄のみ上書き）
+  PRONOUNS.forEach(pr => {
+    const safeKey = tenseKey + '_' + pr.replace(/[^a-z]/gi,'');
+    const el = document.getElementById('conj-form-' + safeKey);
+    if (el && !el.value.trim() && forms[pr]) el.value = forms[pr];
+  });
+  toast('✅ 活用を自動入力しました（編集可）', 2500);
+}
+
+// ── スペイン語（原形）入力時のリアルタイム反映 ─────────────
+function onDictEsInput(val) {
+  const infinitive = val.trim();
+  // 原形ラベル更新
+  const display = document.getElementById('conj-infinitive-display');
+  if (display) display.textContent = infinitive || '—';
+
+  // 形容詞の自動推定も連動
+  const pos = document.querySelector('.pos-btn.selected')?.dataset.pos || '';
+  if (pos === '形容詞') guessAdjForms(false);
+
+  // 活用表が表示されていなければ何もしない
+  const conjSection = document.getElementById('conj-section');
+  if (!conjSection || conjSection.style.display === 'none') return;
+
+  const autoGer  = guessGerundio(infinitive);
+  const autoPart = guessParticipio(infinitive);
+
+  PRONOUNS.forEach(pr => {
+    const safe = pr.replace(/[^a-z]/gi,'');
+
+    // ir a → 動詞の原形列（空欄のみ更新）
+    const infEl = document.getElementById('conj-inf-ir_a_' + safe);
+    if (infEl && !infEl.value.trim()) infEl.value = infinitive;
+
+    // 進行形列（空欄のみ更新）
+    const gerEl = document.getElementById('conj-ger-gerundio_' + safe);
+    if (gerEl && !gerEl.value.trim()) gerEl.value = autoGer;
+
+    // 過去分詞列（空欄のみ更新）
+    const partEl = document.getElementById('conj-part-perfecto_' + safe);
+    if (partEl && !partEl.value.trim()) partEl.value = autoPart;
+  });
+}
 async function autoGenConjFCs(verbEs, verbJp, conjugation) {
   if (!conjugation || !Object.keys(conjugation).length) return 0;
   const db = getDB();
@@ -3623,28 +3885,6 @@ async function saveDictEntry() {
     saveDB(db);
   }
 
-  // ── 豆知識をフレーズFCに自動登録（入力がある場合） ──
-  let triviaFCAdded = 0;
-  if (trivia && trivia.trim()) {
-    if (!db.flashcards) db.flashcards = [];
-    const dupTrivia = db.flashcards.find(f => f.es === trivia && f.type === 'phrase');
-    if (!dupTrivia) {
-      const triviaFC = {
-        id: 'fc_trivia_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
-        type: 'phrase',
-        category: '',
-        es: trivia,
-        jp: jp || '',
-        memo: `豆知識: ${es}`,
-        created: todayStr()
-      };
-      db.flashcards.push(triviaFC);
-      try { await pushFC(triviaFC); } catch(e) {}
-      triviaFCAdded = 1;
-      saveDB(db);
-    }
-  }
-
   // ── 活用表の例文 → FC自動生成（動詞のみ） ──────────
   let conjFCCount = 0;
   if (pos === '動詞' && entry.conjugation) {
@@ -3668,7 +3908,6 @@ async function saveDictEntry() {
   const parts = [];
   if (wordFCAdded) parts.push(pos === '名詞' ? `名詞カード${wordFCAdded}枚` : pos === '形容詞' ? `形容詞カード${wordFCAdded}枚` : '単語カード1枚');
   if (exFCAdded) parts.push(`例文カード${exFCAdded}枚`);
-  if (triviaFCAdded) parts.push(`豆知識カード${triviaFCAdded}枚`);
   if (conjFCCount) parts.push(`活用例文${conjFCCount}枚`);
   const fcMsg = parts.length ? `（FC: ${parts.join('・')}）` : '';
 
