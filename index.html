@@ -3648,49 +3648,66 @@ function collectNounForms() {
 }
 
 // ── 標準活用の自動推定（AI呼び出し） ─────────────────────
-async function autoGuessConjForms(tenseKey) {
+// ── ルールベース活用推定エンジン ──────────────────────────
+function guessConjForms(infinitive, tenseKey) {
+  if (!infinitive) return null;
+  const v    = infinitive.trim().toLowerCase();
+  const isAR = /ar$/i.test(v);
+  const isER = /er$/i.test(v);
+  const isIR = /ir$/i.test(v);
+  if (!isAR && !isER && !isIR) return null;
+
+  // 語幹（-ar/-er/-ir を除いた部分）
+  const stem = v.slice(0, -2);
+
+  // 語尾配列: [yo, tú, usted, él/ella, nosotros, ustedes, ellos/ellas]
+  const endingsMap = {
+    presente: isAR
+      ? ['o','as','a','a','amos','an','an']
+      : isER
+        ? ['o','es','e','e','emos','en','en']
+        : ['o','es','e','e','imos','en','en'],
+
+    preterito: isAR
+      ? ['é','aste','ó','ó','amos','aron','aron']
+      : ['í','iste','ió','ió','imos','ieron','ieron'],
+
+    imperfecto: isAR
+      ? ['aba','abas','aba','aba','ábamos','aban','aban']
+      : ['ía','ías','ía','ía','íamos','ían','ían'],
+
+    futuro:      ['é','ás','á','á','emos','án','án'],
+    condicional: ['ía','ías','ía','ía','íamos','ían','ían'],
+  };
+
+  const ends = endingsMap[tenseKey];
+  if (!ends) return null;
+
+  // 未来・過去未来は不定詞全体がベース
+  const base = (tenseKey === 'futuro' || tenseKey === 'condicional') ? v : stem;
+
+  const result = {};
+  PRONOUNS.forEach((pr, i) => { result[pr] = base + ends[i]; });
+  return result;
+}
+
+function autoGuessConjForms(tenseKey) {
   const infinitive = document.getElementById('dict-es')?.value.trim();
   if (!infinitive) { toast('先にスペイン語欄に動詞の原形を入力してください'); return; }
 
-  const tense = TENSES.find(t => t.key === tenseKey);
-  if (!tense) return;
-
-  toast('🤖 活用を推定中...', 5000);
-
-  const prompt = `スペイン語の動詞「${infinitive}」の${tense.label}の活用形を、以下のJSONフォーマットで返してください。
-代名詞は ["yo","tú","usted","él/ella","nosotros","ustedes","ellos/ellas"] です。
-JSONのみ返してください（説明不要）:
-{"yo":"","tú":"","usted":"","él/ella":"","nosotros":"","ustedes":"","ellos/ellas":""}`;
-
-  let forms = null;
-  try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 300,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-    const data = await resp.json();
-    const text = (data.content || []).map(c => c.text || '').join('');
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) forms = JSON.parse(jsonMatch[0]);
-  } catch(e) {
-    toast('推定に失敗しました。手動で入力してください。', 3000);
-    console.error(e); return;
+  const forms = guessConjForms(infinitive, tenseKey);
+  if (!forms) {
+    toast('語尾（-ar/-er/-ir）が判定できませんでした。手動で入力してください。', 3000);
+    return;
   }
 
-  if (!forms) { toast('推定結果が取得できませんでした', 3000); return; }
-
-  // フォームに書き込む（空欄のみ上書き）
+  // 空欄のみ上書き
   PRONOUNS.forEach(pr => {
     const safeKey = tenseKey + '_' + pr.replace(/[^a-z]/gi,'');
     const el = document.getElementById('conj-form-' + safeKey);
-    if (el && !el.value.trim() && forms[pr]) el.value = forms[pr];
+    if (el && !el.value.trim()) el.value = forms[pr];
   });
-  toast('✅ 活用を自動入力しました（編集可）', 2500);
+  toast('✅ 活用を自動入力しました（編集可）', 2200);
 }
 
 // ── スペイン語（原形）入力時のリアルタイム反映 ─────────────
