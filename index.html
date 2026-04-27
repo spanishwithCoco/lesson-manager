@@ -3322,6 +3322,8 @@ let _subtitleOverrides = {};
 let _conjMode = 'normal';
 // カスタムモードのデータ: { [tenseKey]: [{form:'', example:'', meaning:''}] }
 let _customConj = {};
+// 通常モードの活用データ（モード切替時に保持）
+let _lastNormalConj = {};
 
 // ir a の活用（固定）
 const IR_A_FORMS = { yo:'voy a', tú:'vas a', usted:'va a', 'él/ella':'va a', nosotros:'vamos a', ustedes:'van a', 'ellos/ellas':'van a' };
@@ -3442,6 +3444,7 @@ function openDictModal(term, sourceType) {
   _subtitleOverrides = Object.assign({}, existing?.subtitleOverrides || {});
   _conjMode = existing?.conjMode || 'normal';
   _customConj = JSON.parse(JSON.stringify(existing?.customConj || {}));
+  _lastNormalConj = JSON.parse(JSON.stringify(existing?.conjugation || {}));
   // モード切替ボタンの見た目を更新
   document.getElementById('conj-mode-btn-normal')?.classList.toggle('conj-mode-active', _conjMode === 'normal');
   document.getElementById('conj-mode-btn-custom')?.classList.toggle('conj-mode-active', _conjMode === 'custom');
@@ -3518,6 +3521,7 @@ function closeDictModal() {
   _subtitleOverrides = {};
   _conjMode = 'normal';
   _customConj = {};
+  _lastNormalConj = {};
   clearDictDraft();
 }
 
@@ -3654,19 +3658,22 @@ function setConjMode(mode) {
   // ボタンの見た目を更新
   document.getElementById('conj-mode-btn-normal')?.classList.toggle('conj-mode-active', mode === 'normal');
   document.getElementById('conj-mode-btn-custom')?.classList.toggle('conj-mode-active', mode === 'custom');
-  const hint = document.getElementById('conj-mode-hint');
-  if (hint) hint.style.display = mode === 'custom' ? 'inline' : 'inline';
 
   if (mode === 'custom') {
-    // 通常モードから切り替え時：既存入力があれば初期データとして引き継ぐ
-    if (!Object.keys(_customConj).length) {
+    // _customConj にデータがなければ空行を1行ずつ用意（初回のみ）
+    const hasData = Object.keys(_customConj).some(k => (_customConj[k]||[]).some(r => r.form || r.example || r.meaning));
+    if (!hasData && !Object.keys(_customConj).length) {
+      TENSES.forEach(t => { _customConj[t.key] = [{ form: '', example: '', meaning: '' }]; });
+    } else if (!Object.keys(_customConj).length) {
       TENSES.forEach(t => { _customConj[t.key] = [{ form: '', example: '', meaning: '' }]; });
     }
     buildCustomConjTable();
   } else {
-    const saved = collectCustomConjAsNormal();
-    buildConjTable(saved);
+    // 通常モードに戻す：_customConj は捨てずにメモリに保持したまま、通常テーブルを表示
+    const savedConj = _lastNormalConj || {};
+    buildConjTable(savedConj);
   }
+  autoSaveDictEntry(false);
 }
 
 // カスタムモード → 通常モード変換（保存データ互換のため）
@@ -4282,6 +4289,8 @@ async function autoSaveDictEntry(silent) {
   const jp  = document.getElementById('dict-jp')?.value.trim() || '';
   const trivia = document.getElementById('dict-trivia')?.value.trim() || '';
   const conj = (pos === '動詞' && typeof collectConjugation === 'function') ? collectConjugation() : {};
+  // 通常モードの活用データを常にキャッシュしておく（カスタムと切替しても消えないよう）
+  if (_conjMode === 'normal') _lastNormalConj = JSON.parse(JSON.stringify(conj));
   const nounForms = (pos === '名詞') ? collectNounForms() : {};
   const adjForms  = (pos === '形容詞') ? collectAdjForms() : {};
 
@@ -4391,6 +4400,9 @@ function restoreDictDraft(draft) {
   }
   if (draft.customConj && typeof draft.customConj === 'object') {
     _customConj = JSON.parse(JSON.stringify(draft.customConj));
+  }
+  if (draft.conj && typeof draft.conj === 'object') {
+    _lastNormalConj = JSON.parse(JSON.stringify(draft.conj));
   }
   if (_conjMode === 'custom') {
     buildCustomConjTable();
