@@ -953,7 +953,50 @@ textarea.input-field { resize: vertical; min-height: 70px; }
   font-weight: 500; letter-spacing: .04em;
   margin-top: 10px; margin-bottom: 0;
   border-radius: 6px 6px 0 0;
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
 }
+.tense-header .tense-label { flex: 1; min-width: 0; }
+.tense-delete-btn {
+  padding: 2px 8px; border-radius: 5px;
+  border: 1px solid var(--border); background: var(--surface);
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 10px; color: var(--red);
+  cursor: pointer; transition: all .15s; white-space: nowrap; flex-shrink: 0;
+}
+.tense-delete-btn:hover { background: var(--red); color: #fff; border-color: var(--red); }
+.tense-restore-btn {
+  padding: 2px 8px; border-radius: 5px;
+  border: 1px solid var(--green); background: var(--green-soft);
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 10px; color: var(--green);
+  cursor: pointer; transition: all .15s; white-space: nowrap; flex-shrink: 0;
+}
+.tense-restore-btn:hover { background: var(--green); color: #fff; }
+.tense-block-hidden .conj-table-wrap,
+.tense-block-hidden .conj-auto-btn { display: none; }
+.tense-block-hidden .tense-header {
+  background: var(--surface);
+  border-style: dashed;
+  color: var(--muted);
+  opacity: 0.7;
+}
+.tense-subtitle-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 10px 6px;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0;
+}
+.tense-subtitle-label { font-size: 10px; color: var(--muted); white-space: nowrap; font-family: 'Noto Sans JP', sans-serif; }
+.tense-subtitle-input {
+  flex: 1; padding: 3px 8px;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 5px;
+  font-family: 'Noto Sans JP', sans-serif; font-size: 11px; color: var(--text);
+}
+.tense-subtitle-input:focus { outline: none; border-color: var(--accent); background: var(--surface); }
+.tense-block-hidden .tense-subtitle-row { display: none; }
 
 /* 辞書一覧 */
 .dict-item {
@@ -3175,6 +3218,11 @@ const TENSES = [
   { key: 'futuro',      label: '未来（Futuro）',                               subtitle: '〜だろう（推量）',                              type: 'standard' },
   { key: 'condicional', label: '過去未来（Condicional）',                      subtitle: '〜したいのですが（丁寧）／もし〜なら（仮定）',   type: 'standard' },
 ];
+// 非表示テンスの管理
+let _hiddenTenses = new Set();
+// subtitleの上書き（入力BOX用）
+let _subtitleOverrides = {};
+
 // ir a の活用（固定）
 const IR_A_FORMS = { yo:'voy a', tú:'vas a', usted:'va a', 'él/ella':'va a', nosotros:'vamos a', ustedes:'van a', 'ellos/ellas':'van a' };
 // haber の活用（固定）
@@ -3290,6 +3338,8 @@ function openDictModal(term, sourceType) {
   }
 
   // 活用表
+  _hiddenTenses = new Set(existing?.hiddenTenses || []);
+  _subtitleOverrides = Object.assign({}, existing?.subtitleOverrides || {});
   buildConjTable(existing?.conjugation || {});
   // toggleConjSection は display 切替のみ（再ビルドしない）
   document.getElementById('conj-section').style.display = (existing?.pos === '動詞') ? 'block' : 'none';
@@ -3352,6 +3402,8 @@ function closeDictModal() {
   document.getElementById('dict-modal').classList.remove('active');
   _dictModalTerm = null;
   _dictExamples = [];
+  _hiddenTenses = new Set();
+  _subtitleOverrides = {};
   clearDictDraft();
 }
 
@@ -3482,6 +3534,26 @@ function toggleConjSection(show) {
   }
 }
 
+function toggleTenseVisibility(key) {
+  if (_hiddenTenses.has(key)) {
+    _hiddenTenses.delete(key);
+  } else {
+    _hiddenTenses.add(key);
+  }
+  // ブロックのhiddenクラスを切替
+  const block = document.getElementById('tense-block-' + key);
+  if (block) {
+    block.classList.toggle('tense-block-hidden', _hiddenTenses.has(key));
+    const btn = block.querySelector('.tense-delete-btn, .tense-restore-btn');
+    const isHidden = _hiddenTenses.has(key);
+    if (btn) {
+      btn.className = isHidden ? 'tense-restore-btn' : 'tense-delete-btn';
+      btn.textContent = isHidden ? '↩ 復活' : '✕ 削除';
+    }
+  }
+  autoSaveDictEntry(false);
+}
+
 function buildConjTable(savedConj) {
   const container = document.getElementById('conj-tenses');
   const infinitive = document.getElementById('dict-es')?.value.trim() || '';
@@ -3489,9 +3561,20 @@ function buildConjTable(savedConj) {
   const autoParticipio = guessParticipio(infinitive);
 
   container.innerHTML = TENSES.map(t => {
-    const subtitleHtml = t.subtitle
-      ? `<span style="font-size:10px;color:var(--muted);font-family:'Noto Sans JP',sans-serif;font-weight:400;margin-left:8px">｜${t.subtitle}</span>`
-      : '';
+    const isHidden = _hiddenTenses.has(t.key);
+    const subtitlePlaceholder = t.subtitle || '';
+    const subtitleVal = _subtitleOverrides[t.key] !== undefined ? _subtitleOverrides[t.key] : '';
+    const toggleBtn = isHidden
+      ? `<button class="tense-restore-btn" onclick="toggleTenseVisibility('${t.key}')">↩ 復活</button>`
+      : `<button class="tense-delete-btn" onclick="toggleTenseVisibility('${t.key}')">✕ 削除</button>`;
+
+    const subtitleRow = `<div class="tense-subtitle-row">
+      <span class="tense-subtitle-label">意味：</span>
+      <input class="tense-subtitle-input" id="tense-subtitle-${t.key}"
+        value="${escHtml(subtitleVal)}"
+        placeholder="${escHtml(subtitlePlaceholder)}"
+        oninput="_subtitleOverrides['${t.key}']=this.value;autoSaveDictEntry(false)">
+    </div>`;
 
     // ── 近い未来（ir a）──
     if (t.type === 'ir_a') {
@@ -3500,7 +3583,6 @@ function buildConjTable(savedConj) {
         const safeKey = t.key + '_' + pr.replace(/[^a-z]/gi,'');
         const saved = savedConj[safeKey] || {};
         const irAForm = IR_A_FORMS[pr] || '';
-        // 原形は自動入力（保存済みがあれば優先）
         const infVal = saved.form2 !== undefined ? saved.form2 : infinitive;
         return `<tr>
           <td class="conj-pron">${pr}</td>
@@ -3510,15 +3592,16 @@ function buildConjTable(savedConj) {
           <td><input class="conj-input jp-input" id="conj-jp-${safeKey}" value="${escHtml(saved.meaning||'')}" placeholder="日本語の意味" onblur="autoSaveDictEntry(false)"></td>
         </tr>`;
       }).join('');
-      return `
-        <div class="tense-header">${t.label}${subtitleHtml}</div>
+      return `<div class="tense-block${isHidden?' tense-block-hidden':''}" id="tense-block-${t.key}">
+        <div class="tense-header"><span class="tense-label">${t.label}</span>${toggleBtn}</div>
+        ${subtitleRow}
         <div class="conj-table-wrap">
           ${hint}
           <table class="conj-table">
             <thead><tr><th>主語</th><th>ir a+</th><th>動詞の原形</th><th>例文（ES）</th><th>意味（JP）</th></tr></thead>
             <tbody>${rows}</tbody>
           </table>
-        </div>`;
+        </div></div>`;
     }
 
     // ── 現在完了（haber + 過去分詞）──
@@ -3538,15 +3621,16 @@ function buildConjTable(savedConj) {
           <td><input class="conj-input jp-input" id="conj-jp-${safeKey}" value="${escHtml(saved.meaning||'')}" placeholder="日本語の意味" onblur="autoSaveDictEntry(false)"></td>
         </tr>`;
       }).join('');
-      return `
-        <div class="tense-header">${t.label}${subtitleHtml}</div>
+      return `<div class="tense-block${isHidden?' tense-block-hidden':''}" id="tense-block-${t.key}">
+        <div class="tense-header"><span class="tense-label">${t.label}</span>${toggleBtn}</div>
+        ${subtitleRow}
         <div class="conj-table-wrap">
           ${hint}
           <table class="conj-table">
             <thead><tr><th>主語</th><th>haber</th><th>過去分詞</th><th>例文（ES）</th><th>意味（JP）</th></tr></thead>
             <tbody>${rows}</tbody>
           </table>
-        </div>`;
+        </div></div>`;
     }
 
     // ── 進行形（estar + 動詞の進行形）──
@@ -3566,21 +3650,22 @@ function buildConjTable(savedConj) {
           <td><input class="conj-input jp-input" id="conj-jp-${safeKey}" value="${escHtml(saved.meaning||'')}" placeholder="日本語の意味" onblur="autoSaveDictEntry(false)"></td>
         </tr>`;
       }).join('');
-      return `
-        <div class="tense-header">${t.label}${subtitleHtml}</div>
+      return `<div class="tense-block${isHidden?' tense-block-hidden':''}" id="tense-block-${t.key}">
+        <div class="tense-header"><span class="tense-label">${t.label}</span>${toggleBtn}</div>
+        ${subtitleRow}
         <div class="conj-table-wrap">
           ${hint}
           <table class="conj-table">
             <thead><tr><th>主語</th><th>estar</th><th>動詞の進行形</th><th>例文（ES）</th><th>意味（JP）</th></tr></thead>
             <tbody>${rows}</tbody>
           </table>
-        </div>`;
+        </div></div>`;
     }
 
     // ── 標準活用表（現在・点過去・線過去・未来・過去未来）＋ 自動推定ボタン ──
     const isAutoable = ['presente','preterito','imperfecto','futuro','condicional'].includes(t.key);
     const autoBtn = isAutoable
-      ? `<button class="btn-small accent" onclick="autoGuessConjForms('${t.key}')" style="margin-bottom:8px;font-size:10px">✨ 活用を自動推定する</button>`
+      ? `<button class="btn-small accent conj-auto-btn" onclick="autoGuessConjForms('${t.key}')" style="margin-bottom:8px;font-size:10px">✨ 活用を自動推定する</button>`
       : '';
     const rows = PRONOUNS.map(pr => {
       const safeKey = t.key + '_' + pr.replace(/[^a-z]/gi,'');
@@ -3592,15 +3677,16 @@ function buildConjTable(savedConj) {
         <td><input class="conj-input jp-input" id="conj-jp-${safeKey}" value="${escHtml(saved.meaning||'')}" placeholder="日本語の意味" onblur="autoSaveDictEntry(false)"></td>
       </tr>`;
     }).join('');
-    return `
-      <div class="tense-header">${t.label}${subtitleHtml}</div>
+    return `<div class="tense-block${isHidden?' tense-block-hidden':''}" id="tense-block-${t.key}">
+      <div class="tense-header"><span class="tense-label">${t.label}</span>${toggleBtn}</div>
+      ${subtitleRow}
       <div class="conj-table-wrap">
         ${autoBtn}
         <table class="conj-table">
           <thead><tr><th>代名詞</th><th>活用</th><th>例文（ES）</th><th>意味（JP）</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
-      </div>`;
+      </div></div>`;
   }).join('');
 }
 
@@ -3806,7 +3892,11 @@ async function saveDictEntry() {
   const adjForms  = (pos === '形容詞') ? collectAdjForms() : {};
 
   const entry = { pos, es, jp, example, examples, trivia, nounForms, adjForms, visibility: 'members' };
-  if (pos === '動詞') entry.conjugation = collectConjugation();
+  if (pos === '動詞') {
+    entry.conjugation = collectConjugation();
+    entry.hiddenTenses = Array.from(_hiddenTenses);
+    entry.subtitleOverrides = Object.assign({}, _subtitleOverrides);
+  }
   entry.forms = extractForms(entry.conjugation || {});
 
   const db = getDB();
@@ -3963,7 +4053,8 @@ async function autoSaveDictEntry(silent) {
   // 常にlocalStorageに現在の入力状態を保持
   const snapshot = {
     term: _dictModalTerm, sourceType: _dictModalSourceType,
-    es, jp, examples: _dictExamples, trivia, pos, conj, nounForms, adjForms
+    es, jp, examples: _dictExamples, trivia, pos, conj, nounForms, adjForms,
+    hiddenTenses: Array.from(_hiddenTenses), subtitleOverrides: Object.assign({}, _subtitleOverrides)
   };
   try { localStorage.setItem(DRAFT_DICT_KEY, JSON.stringify(snapshot)); } catch(e) {}
 
@@ -3971,7 +4062,10 @@ async function autoSaveDictEntry(silent) {
 
   const examples = _dictExamples.filter(e => e.es.trim());
   const example  = examples.length ? examples[0].es : '';
-  const entry = { pos, es, jp, example, examples, trivia, conjugation: conj, nounForms, adjForms };
+  const entry = {
+    pos, es, jp, example, examples, trivia, conjugation: conj, nounForms, adjForms,
+    hiddenTenses: Array.from(_hiddenTenses), subtitleOverrides: Object.assign({}, _subtitleOverrides)
+  };
   entry.forms = typeof extractForms === 'function' ? extractForms(conj) : [];
 
   // localDBに保存
@@ -4044,6 +4138,12 @@ function restoreDictDraft(draft) {
         ab.style.fontWeight  = '700';
       }
     }
+  }
+  if (draft.hiddenTenses && Array.isArray(draft.hiddenTenses)) {
+    _hiddenTenses = new Set(draft.hiddenTenses);
+  }
+  if (draft.subtitleOverrides && typeof draft.subtitleOverrides === 'object') {
+    _subtitleOverrides = Object.assign({}, draft.subtitleOverrides);
   }
   if (draft.conj && Object.keys(draft.conj).length) buildConjTable(draft.conj);
 }
