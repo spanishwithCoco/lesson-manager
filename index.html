@@ -1986,7 +1986,16 @@ async function deleteDict(es) {
 }
 function extractForms(conjugation, customConj) {
   const conjForms = Object.values(conjugation || {})
-    .map(v => (v.form || '').trim().toLowerCase())
+    .flatMap(v => {
+      const forms = [];
+      const f = (v.form || '').trim().toLowerCase();
+      if (f) forms.push(f);
+      // gerundio / participio / ir-a など「estar/haber/ir a + form2」形式の場合、
+      // form2（単体の活用形: viviendo, vivido 等）も照合対象に追加する
+      const f2 = (v.form2 || '').trim().toLowerCase();
+      if (f2) forms.push(f2);
+      return forms;
+    })
     .filter(f => f.length > 0);
   // カスタム活用形（customConj）のform値も抽出
   const customForms = [];
