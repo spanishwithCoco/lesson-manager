@@ -1275,8 +1275,16 @@ textarea.input-field { resize: vertical; min-height: 70px; }
 }
 .dp-conj-table {
   width: 100%; border-collapse: collapse; font-size: 12px;
-  min-width: 340px;
+  min-width: 520px;
 }
+.dp-conj-table th:nth-child(1),
+.dp-conj-table td:nth-child(1) { width: 80px; }
+.dp-conj-table th:nth-child(2),
+.dp-conj-table td:nth-child(2) { width: 110px; }
+.dp-conj-table th:nth-child(3),
+.dp-conj-table td:nth-child(3) { min-width: 160px; }
+.dp-conj-table th:nth-child(4),
+.dp-conj-table td:nth-child(4) { min-width: 130px; }
 .dp-conj-table th {
   background: rgba(200,98,42,0.07); color: var(--accent);
   font-size: 10px; font-family: 'DM Mono', monospace;
