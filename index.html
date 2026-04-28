@@ -712,6 +712,18 @@ textarea.input-field { resize: vertical; min-height: 70px; }
 .vis-select[data-vis="public"]  { border-color: var(--green);  color: var(--green);  background-color: var(--green-soft); }
 .vis-select[data-vis="members"] { border-color: var(--accent2); color: var(--accent2); background-color: rgba(61,107,140,0.08); }
 .vis-select[data-vis="private"] { border-color: var(--muted);  color: var(--muted);  background-color: var(--surface2); }
+.dir-select {
+  padding: 5px 8px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--surface2);
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 11px; color: var(--muted);
+  cursor: pointer; transition: all .15s;
+  white-space: nowrap;
+}
+.dir-select:focus { outline: none; }
+.dir-select[data-dir="both"]     { border-color: var(--green);  color: var(--green);  background-color: var(--green-soft); }
+.dir-select[data-dir="es_to_jp"] { border-color: var(--accent2); color: var(--accent2); background-color: rgba(61,107,140,0.08); }
+.dir-select[data-dir="jp_to_es"] { border-color: var(--accent); color: var(--accent); background-color: var(--accent-soft); }
 
 /* sync status */
 .sync-badge {
@@ -1420,7 +1432,15 @@ textarea.input-field { resize: vertical; min-height: 70px; }
     <!-- プレビューエリア -->
     <div id="fc-preview-area" style="display:none;margin-bottom:20px">
       <div class="card" style="margin-bottom:8px">
-        <div class="card-label">プレビュー（タップして確認）</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div class="card-label" style="margin-bottom:0">プレビュー（タップして確認）</div>
+          <select id="fc-study-mode" class="dir-select" data-dir="es_to_jp"
+            onchange="onStudyModeChange(this)"
+            style="font-size:12px;padding:5px 10px">
+            <option value="es_to_jp">ES → JP</option>
+            <option value="jp_to_es">JP → ES</option>
+          </select>
+        </div>
         <div class="fc-preview-card" id="fc-preview-card" onclick="flipFCPreview()">
           <div class="fc-preview-jp" id="fc-preview-jp">日本語</div>
           <div class="fc-preview-es" id="fc-preview-es">Español</div>
@@ -4715,6 +4735,8 @@ let _fcEditId = null;
 let _fcPreviewIdx = 0;
 let _fcPreviewFlipped = false;
 let _fcCurrentEntries = [];
+let _fcPreviewEntries = [];
+let _fcStudyMode = 'es_to_jp';
 
 let _fcSelectedCat = '';
 let _fcSelectedType = 'phrase';
@@ -4910,6 +4932,13 @@ async function renderFlashcardList(doSync) {
 
   _fcCurrentEntries = entries;
 
+  // プレビュー用：学習モードに応じてdirectionでフィルタ
+  _fcPreviewEntries = entries.filter(f => {
+    const dir = f.direction || 'both';
+    return dir === 'both' || dir === _fcStudyMode;
+  });
+  if (!_fcPreviewEntries.length) _fcPreviewEntries = entries;
+
   const totalPages = Math.ceil(entries.length / FC_PER_PAGE);
   if (fcPage >= totalPages) fcPage = Math.max(0, totalPages-1);
   const page = entries.slice(fcPage*FC_PER_PAGE, (fcPage+1)*FC_PER_PAGE);
@@ -4924,6 +4953,7 @@ async function renderFlashcardList(doSync) {
 
   // プレビューエリア
   document.getElementById('fc-preview-area').style.display = 'block';
+  if (_fcPreviewIdx >= _fcPreviewEntries.length) _fcPreviewIdx = 0;
   showFCPreview(_fcPreviewIdx);
 
   container.innerHTML = page.map((f, i) => {
@@ -4961,7 +4991,7 @@ async function renderFlashcardList(doSync) {
 }
 
 function showFCPreview(idx) {
-  const entries = _fcCurrentEntries;
+  const entries = _fcPreviewEntries.length ? _fcPreviewEntries : _fcCurrentEntries;
   if (!entries.length) return;
   if (idx < 0) idx = 0;
   if (idx >= entries.length) idx = entries.length - 1;
@@ -4976,12 +5006,12 @@ function showFCPreview(idx) {
 
   const f = entries[idx];
   const hasExamples = f.type === 'phrase' && f.examples && f.examples.length > 0;
+  const dir = f.direction || 'both';
+  const studyDir = dir === 'both' ? _fcStudyMode : dir;
 
   card.classList.remove('flipped');
 
   if (hasExamples) {
-    // 表面：スペイン語フレーズ（大）
-    // 裏面：日本語意味 ＋ 例文一覧
     jpEl.innerHTML = `<span style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">💬 フレーズ</span>${escHtml(f.es)}`;
     jpEl.style.fontFamily = "'DM Mono', monospace";
     jpEl.style.color = 'var(--accent2)';
@@ -4994,14 +5024,23 @@ function showFCPreview(idx) {
         ${ex.jp ? `<div class="fc-preview-example-jp">${escHtml(ex.jp)}</div>` : ''}
       </div>
     `).join('');
-  } else {
-    // 通常表示（単語、または例文なしフレーズ）
+  } else if (studyDir === 'jp_to_es') {
+    // JP→ES：表面JP、裏面ES
     jpEl.textContent = f.jp;
     jpEl.style.fontFamily = "'Noto Sans JP', sans-serif";
-    jpEl.style.color = '';
+    jpEl.style.color = 'var(--text)';
     esEl.textContent = f.es;
     esEl.style.fontFamily = "'DM Mono', monospace";
-    esEl.style.color = '';
+    esEl.style.color = 'var(--accent2)';
+    examplesEl.innerHTML = '';
+  } else {
+    // ES→JP：表面ES、裏面JP
+    jpEl.textContent = f.es;
+    jpEl.style.fontFamily = "'DM Mono', monospace";
+    jpEl.style.color = 'var(--accent2)';
+    esEl.textContent = f.jp;
+    esEl.style.fontFamily = "'Noto Sans JP', sans-serif";
+    esEl.style.color = 'var(--text)';
     examplesEl.innerHTML = '';
   }
 
@@ -5099,6 +5138,13 @@ function prevFCCard(dir) {
   const panel = document.getElementById('fc-dict-panel');
   if (panel) { panel.style.display = 'none'; panel.innerHTML = ''; }
   showFCPreview(_fcPreviewIdx + dir);
+}
+
+function onStudyModeChange(selectEl) {
+  _fcStudyMode = selectEl.value;
+  selectEl.setAttribute('data-dir', _fcStudyMode);
+  _fcPreviewIdx = 0;
+  renderFlashcardList();
 }
 
 function previewFC(idx) {
