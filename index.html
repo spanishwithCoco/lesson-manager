@@ -1560,9 +1560,12 @@ textarea.input-field { resize: vertical; min-height: 70px; }
     <button class="back-btn" onclick="showScreen('screen-top')">トップへ →</button>
   </div>
   <div class="container">
-    <div class="search-box">
-      <span class="search-icon">🔍</span>
-      <input type="text" placeholder="単語・意味で検索..." id="dict-search" oninput="renderDictList()">
+    <div class="search-box" style="display:flex;gap:8px;align-items:center">
+      <div style="position:relative;flex:1">
+        <span class="search-icon">🔍</span>
+        <input type="text" placeholder="単語・意味で検索..." id="dict-search" oninput="renderDictList()" style="width:100%;padding:10px 14px 10px 38px;background:var(--surface);border:1px solid var(--border);border-radius:10px;font-family:'Noto Sans JP',sans-serif;font-size:14px;color:var(--text);">
+      </div>
+      <button class="btn-small accent" onclick="openDictModal('', 'word')">＋ 追加登録</button>
     </div>
     <div id="dict-list-container"><!-- JS --></div>
     <div class="pagination" id="dict-pagination"><!-- JS --></div>
