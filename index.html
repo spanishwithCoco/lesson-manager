@@ -712,6 +712,18 @@ textarea.input-field { resize: vertical; min-height: 70px; }
 .vis-select[data-vis="public"]  { border-color: var(--green);  color: var(--green);  background-color: var(--green-soft); }
 .vis-select[data-vis="members"] { border-color: var(--accent2); color: var(--accent2); background-color: rgba(61,107,140,0.08); }
 .vis-select[data-vis="private"] { border-color: var(--muted);  color: var(--muted);  background-color: var(--surface2); }
+.dir-select {
+  padding: 5px 8px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--surface2);
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 11px; color: var(--muted);
+  cursor: pointer; transition: all .15s;
+  white-space: nowrap;
+}
+.dir-select:focus { outline: none; }
+.dir-select[data-dir="both"]     { border-color: var(--green);  color: var(--green);  background-color: var(--green-soft); }
+.dir-select[data-dir="es_to_jp"] { border-color: var(--accent2); color: var(--accent2); background-color: rgba(61,107,140,0.08); }
+.dir-select[data-dir="jp_to_es"] { border-color: var(--accent); color: var(--accent); background-color: var(--accent-soft); }
 
 /* sync status */
 .sync-badge {
@@ -1212,43 +1224,6 @@ textarea.input-field { resize: vertical; min-height: 70px; }
   border-radius: 0 8px 8px 0; padding: 8px 10px;
   font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.7;
 }
-.dp-conj-toggle {
-  display: flex; align-items: center; gap: 6px;
-  margin-top: 10px; padding: 7px 10px;
-  border-radius: 8px; border: 1px solid var(--border);
-  background: var(--surface2); cursor: pointer;
-  font-size: 12px; color: var(--accent2);
-  font-family: 'Noto Sans JP', sans-serif;
-  transition: all .15s; width: 100%; text-align: left;
-}
-.dp-conj-toggle:hover { background: rgba(61,107,140,0.08); border-color: var(--accent2); }
-.dp-conj-toggle .toggle-arrow { transition: transform .2s; font-size: 10px; margin-left: auto; }
-.dp-conj-toggle.open .toggle-arrow { transform: rotate(180deg); }
-.dp-conj-body { display: none; margin-top: 8px; }
-.dp-conj-body.open { display: block; }
-.dp-conj-tense {
-  margin-bottom: 12px;
-}
-.dp-conj-tense-label {
-  font-size: 11px; font-weight: 600; color: var(--accent2);
-  margin-bottom: 5px; padding-bottom: 3px;
-  border-bottom: 1px solid var(--border);
-  font-family: 'Noto Sans JP', sans-serif;
-}
-.dp-conj-rows { display: flex; flex-direction: column; gap: 3px; }
-.dp-conj-row {
-  display: grid; grid-template-columns: 80px 1fr;
-  gap: 6px; font-size: 12px; align-items: start;
-}
-.dp-conj-pronoun { color: var(--muted); font-size: 11px; padding-top: 1px; }
-.dp-conj-form { font-family: 'DM Mono', monospace; color: var(--text); font-size: 13px; }
-.dp-conj-example { font-size: 11px; color: var(--muted); margin-top: 1px; line-height: 1.5; }
-.dp-custom-row {
-  padding: 6px 8px; background: var(--surface2);
-  border-radius: 6px; margin-bottom: 4px;
-}
-.dp-custom-form { font-family: 'DM Mono', monospace; color: var(--text); font-size: 13px; }
-.dp-custom-meaning { font-size: 11px; color: var(--muted); margin-top: 2px; }
 .fc-dict-btn {
   display: none; margin-top: 10px;
   padding: 6px 14px; border-radius: 8px;
@@ -1260,6 +1235,80 @@ textarea.input-field { resize: vertical; min-height: 70px; }
 }
 .fc-dict-btn:hover { background: var(--accent2); color: #fff; }
 .fc-preview-card.flipped .fc-dict-btn { display: inline-flex; align-items: center; gap: 5px; }
+
+/* ── 辞書パネル内の活用表 ── */
+.dp-conj-toggle-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-top: 12px; padding: 6px 12px; border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface); color: var(--muted);
+  font-size: 11px; font-family: 'Noto Sans JP', sans-serif;
+  cursor: pointer; transition: all .15s; width: 100%;
+  justify-content: space-between;
+}
+.dp-conj-toggle-btn:hover { border-color: var(--accent); color: var(--accent); }
+.dp-conj-toggle-btn .dp-conj-toggle-icon { font-size: 10px; transition: transform .2s; }
+.dp-conj-toggle-btn.open .dp-conj-toggle-icon { transform: rotate(180deg); }
+.dp-conj-section {
+  display: none; margin-top: 8px;
+}
+.dp-conj-section.visible { display: block; }
+/* テンスタブ */
+.dp-tense-tabs {
+  display: flex; overflow-x: auto; gap: 4px; padding-bottom: 6px;
+  scrollbar-width: none;
+}
+.dp-tense-tabs::-webkit-scrollbar { display: none; }
+.dp-tense-tab {
+  flex-shrink: 0; padding: 4px 10px; border-radius: 20px;
+  border: 1px solid var(--border); background: var(--surface);
+  font-size: 10px; color: var(--muted); cursor: pointer; transition: all .15s;
+  white-space: nowrap; font-family: 'DM Mono', monospace;
+}
+.dp-tense-tab.active {
+  background: var(--accent); border-color: var(--accent); color: #fff;
+}
+/* 活用テーブル */
+.dp-conj-table-wrap {
+  overflow-x: auto; margin-top: 8px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface);
+}
+.dp-conj-table {
+  width: 100%; border-collapse: collapse; font-size: 12px;
+  min-width: 340px;
+}
+.dp-conj-table th {
+  background: rgba(200,98,42,0.07); color: var(--accent);
+  font-size: 10px; font-family: 'DM Mono', monospace;
+  padding: 6px 8px; text-align: left; white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+.dp-conj-table td {
+  padding: 7px 8px; border-bottom: 1px solid var(--border);
+  vertical-align: top; line-height: 1.5;
+}
+.dp-conj-table tr:last-child td { border-bottom: none; }
+.dp-conj-table .dp-ct-pron {
+  color: var(--accent2); font-family: 'DM Mono', monospace;
+  font-size: 11px; white-space: nowrap;
+}
+.dp-conj-table .dp-ct-form {
+  font-family: 'DM Mono', monospace; color: var(--text);
+  font-weight: 500; white-space: nowrap;
+}
+.dp-conj-table .dp-ct-ex { color: var(--muted); font-size: 11px; }
+.dp-conj-table .dp-ct-jp { color: var(--muted); font-size: 11px; }
+/* カスタム活用 */
+.dp-custom-conj-block { margin-top: 8px; }
+.dp-custom-tense-label {
+  font-size: 10px; color: var(--accent); font-family: 'DM Mono', monospace;
+  text-transform: uppercase; letter-spacing: .04em;
+  margin-top: 10px; margin-bottom: 4px; padding-left: 2px;
+}
+.dp-conj-subtitle {
+  font-size: 10px; color: var(--muted); margin-top: 2px;
+  margin-bottom: 4px; padding-left: 2px;
+}
 
 /* レッスン登録単語・フレーズ一覧（四つ目の新画面） */
 #screen-lesson-vocab .page-header,
@@ -1457,7 +1506,15 @@ textarea.input-field { resize: vertical; min-height: 70px; }
     <!-- プレビューエリア -->
     <div id="fc-preview-area" style="display:none;margin-bottom:20px">
       <div class="card" style="margin-bottom:8px">
-        <div class="card-label">プレビュー（タップして確認）</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div class="card-label" style="margin-bottom:0">プレビュー（タップして確認）</div>
+          <select id="fc-study-mode" class="dir-select" data-dir="es_to_jp"
+            onchange="onStudyModeChange(this)"
+            style="font-size:12px;padding:5px 10px">
+            <option value="es_to_jp">ES → JP</option>
+            <option value="jp_to_es">JP → ES</option>
+          </select>
+        </div>
         <div class="fc-preview-card" id="fc-preview-card" onclick="flipFCPreview()">
           <div class="fc-preview-jp" id="fc-preview-jp">日本語</div>
           <div class="fc-preview-es" id="fc-preview-es">Español</div>
@@ -4752,6 +4809,8 @@ let _fcEditId = null;
 let _fcPreviewIdx = 0;
 let _fcPreviewFlipped = false;
 let _fcCurrentEntries = [];
+let _fcPreviewEntries = [];
+let _fcStudyMode = 'es_to_jp';
 
 let _fcSelectedCat = '';
 let _fcSelectedType = 'phrase';
@@ -4947,6 +5006,13 @@ async function renderFlashcardList(doSync) {
 
   _fcCurrentEntries = entries;
 
+  // プレビュー用：学習モードに応じてdirectionでフィルタ
+  _fcPreviewEntries = entries.filter(f => {
+    const dir = f.direction || 'both';
+    return dir === 'both' || dir === _fcStudyMode;
+  });
+  if (!_fcPreviewEntries.length) _fcPreviewEntries = entries;
+
   const totalPages = Math.ceil(entries.length / FC_PER_PAGE);
   if (fcPage >= totalPages) fcPage = Math.max(0, totalPages-1);
   const page = entries.slice(fcPage*FC_PER_PAGE, (fcPage+1)*FC_PER_PAGE);
@@ -4961,6 +5027,7 @@ async function renderFlashcardList(doSync) {
 
   // プレビューエリア
   document.getElementById('fc-preview-area').style.display = 'block';
+  if (_fcPreviewIdx >= _fcPreviewEntries.length) _fcPreviewIdx = 0;
   showFCPreview(_fcPreviewIdx);
 
   container.innerHTML = page.map((f, i) => {
@@ -4998,7 +5065,7 @@ async function renderFlashcardList(doSync) {
 }
 
 function showFCPreview(idx) {
-  const entries = _fcCurrentEntries;
+  const entries = _fcPreviewEntries.length ? _fcPreviewEntries : _fcCurrentEntries;
   if (!entries.length) return;
   if (idx < 0) idx = 0;
   if (idx >= entries.length) idx = entries.length - 1;
@@ -5013,12 +5080,12 @@ function showFCPreview(idx) {
 
   const f = entries[idx];
   const hasExamples = f.type === 'phrase' && f.examples && f.examples.length > 0;
+  const dir = f.direction || 'both';
+  const studyDir = dir === 'both' ? _fcStudyMode : dir;
 
   card.classList.remove('flipped');
 
   if (hasExamples) {
-    // 表面：スペイン語フレーズ（大）
-    // 裏面：日本語意味 ＋ 例文一覧
     jpEl.innerHTML = `<span style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">💬 フレーズ</span>${escHtml(f.es)}`;
     jpEl.style.fontFamily = "'DM Mono', monospace";
     jpEl.style.color = 'var(--accent2)';
@@ -5031,16 +5098,29 @@ function showFCPreview(idx) {
         ${ex.jp ? `<div class="fc-preview-example-jp">${escHtml(ex.jp)}</div>` : ''}
       </div>
     `).join('');
-  } else {
-    // 通常表示（単語、または例文なしフレーズ）
+  } else if (studyDir === 'jp_to_es') {
+    // JP→ES：表面JP、裏面ES
     jpEl.textContent = f.jp;
     jpEl.style.fontFamily = "'Noto Sans JP', sans-serif";
-    jpEl.style.color = '';
+    jpEl.style.color = 'var(--text)';
     esEl.textContent = f.es;
     esEl.style.fontFamily = "'DM Mono', monospace";
-    esEl.style.color = '';
+    esEl.style.color = 'var(--accent2)';
+    examplesEl.innerHTML = '';
+  } else {
+    // ES→JP：表面ES、裏面JP
+    jpEl.textContent = f.es;
+    jpEl.style.fontFamily = "'DM Mono', monospace";
+    jpEl.style.color = 'var(--accent2)';
+    esEl.textContent = f.jp;
+    esEl.style.fontFamily = "'Noto Sans JP', sans-serif";
+    esEl.style.color = 'var(--text)';
     examplesEl.innerHTML = '';
   }
+
+  // 「辞書を見る」ボタンは単語カードのみ表示
+  const dictBtn = document.getElementById('fc-dict-btn');
+  if (dictBtn) dictBtn.style.display = (f.type === 'word') ? '' : 'none';
 
   hint.textContent = 'タップして確認';
   numEl.textContent = (idx + 1) + ' / ' + entries.length;
@@ -5125,111 +5205,110 @@ function buildDictPanelHTML(entry) {
     html += `<div class="dp-trivia">💡 ${escHtml(entry.trivia)}</div>`;
   }
 
-  // 活用表（動詞のみ）
+  // ── 活用表（動詞のみ） ──
   if (entry.pos === '動詞') {
-    const hasConj = entry.conjMode === 'custom'
-      ? Object.values(entry.customConj || {}).some(rows => rows.some(r => r.form))
-      : Object.keys(entry.conjugation || {}).length > 0;
-    if (hasConj) {
-      const panelId = 'conj-panel-' + Math.random().toString(36).slice(2,7);
-      const btnId   = 'conj-btn-'   + Math.random().toString(36).slice(2,7);
-      html += `
-        <button class="dp-conj-toggle" id="${btnId}"
-          onclick="toggleConjPanel('${panelId}','${btnId}')">
-          📋 活用表を見る
-          <span class="toggle-arrow">▼</span>
-        </button>
-        <div class="dp-conj-body" id="${panelId}">
-          ${buildConjPanelHTML(entry)}
-        </div>`;
+    const conjMode = entry.conjMode || 'normal';
+    const conj = entry.conjugation || {};
+    const customConj = entry.customConj || {};
+    const hasNormalConj = Object.keys(conj).length > 0;
+    const hasCustomConj = conjMode === 'custom' && Object.values(customConj).some(rows =>
+      Array.isArray(rows) && rows.some(r => r.form && r.form.trim())
+    );
+
+    if (hasNormalConj || hasCustomConj) {
+      const panelId = 'dp-conj-' + Date.now();
+      html += `<button class="dp-conj-toggle-btn" onclick="toggleDPConjSection(this,'${panelId}')">
+        <span>📋 活用表を見る</span>
+        <span class="dp-conj-toggle-icon">▼</span>
+      </button>
+      <div class="dp-conj-section" id="${panelId}">`;
+
+      if (conjMode === 'custom' && hasCustomConj) {
+        html += `<div class="dp-custom-conj-block">`;
+        const TENSES_FOR_DISPLAY = [
+          { key:'presente',label:'現在（Presente）'},{key:'preterito',label:'点過去（Pretérito）'},
+          {key:'imperfecto',label:'線過去（Imperfecto）'},{key:'ir_a',label:'近い未来（Ir a）'},
+          {key:'perfecto',label:'現在完了（Perfecto）'},{key:'gerundio',label:'進行形（Gerundio）'},
+          {key:'futuro',label:'未来（Futuro）'},{key:'condicional',label:'過去未来（Condicional）'}
+        ];
+        TENSES_FOR_DISPLAY.forEach(t => {
+          const rows = customConj[t.key];
+          if (!Array.isArray(rows) || !rows.some(r => r.form && r.form.trim())) return;
+          html += `<div class="dp-custom-tense-label">${escHtml(t.label)}</div>
+          <div class="dp-conj-table-wrap"><table class="dp-conj-table">
+            <thead><tr><th>活用形（ES）</th><th>例文</th><th>意味（JP）</th></tr></thead><tbody>`;
+          rows.filter(r => r.form && r.form.trim()).forEach(r => {
+            html += `<tr><td class="dp-ct-form">${escHtml(r.form)}</td><td class="dp-ct-ex">${escHtml(r.example||'')}</td><td class="dp-ct-jp">${escHtml(r.meaning||'')}</td></tr>`;
+          });
+          html += `</tbody></table></div>`;
+        });
+        html += `</div>`;
+      } else {
+        const PRONOUNS_LIST = ['yo','tú','usted','él/ella','nosotros','ustedes','ellos/ellas'];
+        const TENSES_LIST = [
+          {key:'presente',label:'現在',sub:'Presente'},{key:'preterito',label:'点過去',sub:'Pretérito'},
+          {key:'imperfecto',label:'線過去',sub:'Imperfecto'},{key:'ir_a',label:'近い未来',sub:'Ir a'},
+          {key:'perfecto',label:'現在完了',sub:'Perfecto'},{key:'gerundio',label:'進行形',sub:'Gerundio'},
+          {key:'futuro',label:'未来',sub:'Futuro'},{key:'condicional',label:'過去未来',sub:'Condicional'}
+        ];
+        const activeTenses = TENSES_LIST.filter(t =>
+          PRONOUNS_LIST.some(pr => { const k=t.key+'_'+pr.replace(/[^a-z]/gi,''); return conj[k]&&(conj[k].form||conj[k].example||conj[k].meaning); })
+        );
+        if (activeTenses.length > 0) {
+          html += `<div class="dp-tense-tabs">`;
+          activeTenses.forEach((t,i) => {
+            html += `<button class="dp-tense-tab${i===0?' active':''}" onclick="switchDPTenseTab(this,'${panelId}','${t.key}')">${escHtml(t.label)}<br><span style="font-size:9px;opacity:.7">${escHtml(t.sub)}</span></button>`;
+          });
+          html += `</div>`;
+          activeTenses.forEach((t,i) => {
+            html += `<div class="dp-conj-table-wrap" id="${panelId}-${t.key}" style="${i===0?'':'display:none'}"><table class="dp-conj-table"><thead><tr><th>代名詞</th><th>活用</th><th>例文（ES）</th><th>意味（JP）</th></tr></thead><tbody>`;
+            PRONOUNS_LIST.forEach(pr => {
+              const k=t.key+'_'+pr.replace(/[^a-z]/gi,'');
+              const cell=conj[k]||{};
+              if(!cell.form&&!cell.example&&!cell.meaning) return;
+              html += `<tr><td class="dp-ct-pron">${escHtml(pr)}</td><td class="dp-ct-form">${escHtml(cell.form||'')}</td><td class="dp-ct-ex">${escHtml(cell.example||'')}</td><td class="dp-ct-jp">${escHtml(cell.meaning||'')}</td></tr>`;
+            });
+            html += `</tbody></table></div>`;
+          });
+        }
+      }
+      html += `</div>`;
     }
   }
 
   return html;
 }
 
-function toggleConjPanel(panelId, btnId) {
-  const panel = document.getElementById(panelId);
-  const btn   = document.getElementById(btnId);
-  if (!panel || !btn) return;
-  const isOpen = panel.classList.toggle('open');
-  btn.classList.toggle('open', isOpen);
-  btn.querySelector('.toggle-arrow').style.transform = isOpen ? 'rotate(180deg)' : '';
+function toggleDPConjSection(btn, panelId) {
+  const section = document.getElementById(panelId);
+  if (!section) return;
+  const isOpen = section.classList.contains('visible');
+  section.classList.toggle('visible', !isOpen);
+  btn.classList.toggle('open', !isOpen);
+  btn.querySelector('span:first-child').textContent = isOpen ? '📋 活用表を見る' : '📋 活用表を閉じる';
 }
 
-function buildConjPanelHTML(entry) {
-  const hiddenSet = new Set(entry.hiddenTenses || []);
-  const subOvr    = entry.subtitleOverrides || {};
-  let html = '';
-
-  if (entry.conjMode === 'custom') {
-    // カスタムモード
-    const customConj = entry.customConj || {};
-    TENSES.forEach(t => {
-      if (hiddenSet.has(t.key)) return;
-      const rows = (customConj[t.key] || []).filter(r => r.form);
-      if (!rows.length) return;
-      const label = subOvr[t.key] || t.label;
-      html += `<div class="dp-conj-tense">
-        <div class="dp-conj-tense-label">${escHtml(label)}</div>`;
-      rows.forEach(r => {
-        html += `<div class="dp-custom-row">
-          <div class="dp-custom-form">${escHtml(r.form)}</div>
-          ${r.example  ? `<div class="dp-conj-example">${escHtml(r.example)}</div>` : ''}
-          ${r.meaning  ? `<div class="dp-conj-example" style="color:var(--accent)">${escHtml(r.meaning)}</div>` : ''}
-        </div>`;
-      });
-      html += `</div>`;
-    });
-  } else {
-    // 通常モード
-    const conj = entry.conjugation || {};
-    TENSES.forEach(t => {
-      if (hiddenSet.has(t.key)) return;
-      // このテンスにデータがあるか確認
-      const hasData = PRONOUNS.some(pr => {
-        const key = t.key + '_' + pr.replace(/[^a-z]/gi,'');
-        return conj[key]?.form;
-      });
-      if (!hasData) return;
-
-      const label = subOvr[t.key] || t.label;
-      html += `<div class="dp-conj-tense">
-        <div class="dp-conj-tense-label">${escHtml(label)}</div>
-        <div class="dp-conj-rows">`;
-
-      PRONOUNS.forEach(pr => {
-        const key  = t.key + '_' + pr.replace(/[^a-z]/gi,'');
-        const cell = conj[key];
-        if (!cell?.form) return;
-
-        let formDisplay = '';
-        if (t.type === 'ir_a')     formDisplay = `${IR_A_FORMS[pr] || ''} ${escHtml(cell.form)}`;
-        else if (t.type === 'perfecto')  formDisplay = `${HABER_FORMS[pr] || ''} ${escHtml(cell.form)}`;
-        else if (t.type === 'gerundio')  formDisplay = `${ESTAR_FORMS[pr] || ''} ${escHtml(cell.form)}`;
-        else                             formDisplay = escHtml(cell.form);
-
-        html += `<div class="dp-conj-row">
-          <span class="dp-conj-pronoun">${escHtml(pr)}</span>
-          <span>
-            <span class="dp-conj-form">${formDisplay}</span>
-            ${cell.example ? `<div class="dp-conj-example">${escHtml(cell.example)}</div>` : ''}
-            ${cell.meaning ? `<div class="dp-conj-example" style="color:var(--accent)">${escHtml(cell.meaning)}</div>` : ''}
-          </span>
-        </div>`;
-      });
-
-      html += `</div></div>`;
-    });
-  }
-
-  return html || '<div style="color:var(--muted);font-size:12px;padding:4px">活用データがありません</div>';
+function switchDPTenseTab(tabEl, panelId, tenseKey) {
+  const section = document.getElementById(panelId);
+  if (!section) return;
+  section.querySelectorAll('.dp-tense-tab').forEach(t => t.classList.remove('active'));
+  tabEl.classList.add('active');
+  section.querySelectorAll('.dp-conj-table-wrap').forEach(w => w.style.display = 'none');
+  const target = document.getElementById(panelId + '-' + tenseKey);
+  if (target) target.style.display = '';
 }
 
 function prevFCCard(dir) {
   const panel = document.getElementById('fc-dict-panel');
   if (panel) { panel.style.display = 'none'; panel.innerHTML = ''; }
   showFCPreview(_fcPreviewIdx + dir);
+}
+
+function onStudyModeChange(selectEl) {
+  _fcStudyMode = selectEl.value;
+  selectEl.setAttribute('data-dir', _fcStudyMode);
+  _fcPreviewIdx = 0;
+  renderFlashcardList();
 }
 
 function previewFC(idx) {
