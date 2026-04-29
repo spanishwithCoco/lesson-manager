@@ -3898,6 +3898,13 @@ const HABER_FORMS = { yo:'he', tú:'has', usted:'ha', 'él/ella':'ha', nosotros:
 const ESTAR_FORMS = { yo:'estoy', tú:'estás', usted:'está', 'él/ella':'está', nosotros:'estamos', ustedes:'están', 'ellos/ellas':'están' };
 
 const PRONOUNS = ['yo', 'tú', 'usted', 'él/ella', 'nosotros', 'ustedes', 'ellos/ellas'];
+// 表示ラベルの上書き（データキーはそのまま保持）
+const PRONOUN_LABEL = {
+  'usted':       'usted / él / ella',
+  'ustedes':     'ustedes / ellos / ellas',
+};
+// 非表示にする代名詞（usted / ustedes にまとめるため）
+const PRONOUN_HIDDEN = new Set(['él/ella', 'ellos/ellas']);
 
 // 動詞の原形から進行形（gerundio）を自動推測
 function guessGerundio(infinitive) {
@@ -4413,13 +4420,13 @@ function buildConjTable(savedConj) {
     // ── 近い未来（ir a）──
     if (t.type === 'ir_a') {
       const hint = `<div style="font-size:11px;color:var(--muted);margin-bottom:8px">動詞の原形は自動で入力されます（編集可）</div>`;
-      const rows = PRONOUNS.map(pr => {
+      const rows = PRONOUNS.filter(pr => !PRONOUN_HIDDEN.has(pr)).map(pr => {
         const safeKey = t.key + '_' + pr.replace(/[^a-z]/gi,'');
         const saved = savedConj[safeKey] || {};
         const irAForm = IR_A_FORMS[pr] || '';
         const infVal = saved.form2 !== undefined ? saved.form2 : infinitive;
         return `<tr>
-          <td class="conj-pron">${pr}</td>
+          <td class="conj-pron">${PRONOUN_LABEL[pr] || pr}</td>
           <td style="background:var(--surface2);padding:4px 8px;border:1px solid var(--border);font-family:'DM Mono',monospace;font-size:12px;color:var(--accent2);white-space:nowrap">${irAForm}</td>
           <td><input class="conj-input" id="conj-inf-${safeKey}" value="${escHtml(infVal)}" placeholder="動詞の原形" onblur="autoSaveDictEntry(false)"></td>
           <td><input class="conj-input" id="conj-ex-${safeKey}" value="${escHtml(saved.example||'')}" placeholder="例文" onblur="autoSaveDictEntry(false)"></td>
@@ -4442,13 +4449,13 @@ function buildConjTable(savedConj) {
     if (t.type === 'perfecto') {
       const hint = `<div style="font-size:11px;color:var(--muted);margin-bottom:4px">💡 -ar → <strong>-ado</strong>　-er / -ir → <strong>-ido</strong>（不規則は手動修正）</div>
         <div style="font-size:11px;color:var(--muted);margin-bottom:8px">過去分詞は自動推測されます（編集可）</div>`;
-      const rows = PRONOUNS.map(pr => {
+      const rows = PRONOUNS.filter(pr => !PRONOUN_HIDDEN.has(pr)).map(pr => {
         const safeKey = t.key + '_' + pr.replace(/[^a-z]/gi,'');
         const saved = savedConj[safeKey] || {};
         const haberForm = HABER_FORMS[pr] || '';
         const partVal = saved.form2 !== undefined ? saved.form2 : autoParticipio;
         return `<tr>
-          <td class="conj-pron">${pr}</td>
+          <td class="conj-pron">${PRONOUN_LABEL[pr] || pr}</td>
           <td style="background:var(--surface2);padding:4px 8px;border:1px solid var(--border);font-family:'DM Mono',monospace;font-size:12px;color:var(--accent2);white-space:nowrap">${haberForm}</td>
           <td><input class="conj-input" id="conj-part-${safeKey}" value="${escHtml(partVal)}" placeholder="過去分詞" onblur="autoSaveDictEntry(false)"></td>
           <td><input class="conj-input" id="conj-ex-${safeKey}" value="${escHtml(saved.example||'')}" placeholder="例文" onblur="autoSaveDictEntry(false)"></td>
@@ -4471,13 +4478,13 @@ function buildConjTable(savedConj) {
     if (t.type === 'gerundio') {
       const hint = `<div style="font-size:11px;color:var(--muted);margin-bottom:4px">💡 -ar → <strong>-ando</strong>　-er / -ir → <strong>-iendo</strong>（不規則は手動修正）</div>
         <div style="font-size:11px;color:var(--muted);margin-bottom:8px">動詞の進行形は自動推測されます（編集可）</div>`;
-      const rows = PRONOUNS.map(pr => {
+      const rows = PRONOUNS.filter(pr => !PRONOUN_HIDDEN.has(pr)).map(pr => {
         const safeKey = t.key + '_' + pr.replace(/[^a-z]/gi,'');
         const saved = savedConj[safeKey] || {};
         const estarForm = ESTAR_FORMS[pr] || '';
         const gerVal = saved.form2 !== undefined ? saved.form2 : autoGerundio;
         return `<tr>
-          <td class="conj-pron">${pr}</td>
+          <td class="conj-pron">${PRONOUN_LABEL[pr] || pr}</td>
           <td style="background:var(--surface2);padding:4px 8px;border:1px solid var(--border);font-family:'DM Mono',monospace;font-size:12px;color:var(--accent2);white-space:nowrap">${estarForm}</td>
           <td><input class="conj-input" id="conj-ger-${safeKey}" value="${escHtml(gerVal)}" placeholder="進行形" onblur="autoSaveDictEntry(false)"></td>
           <td><input class="conj-input" id="conj-ex-${safeKey}" value="${escHtml(saved.example||'')}" placeholder="例文" onblur="autoSaveDictEntry(false)"></td>
@@ -4501,11 +4508,11 @@ function buildConjTable(savedConj) {
     const autoBtn = isAutoable
       ? `<button class="btn-small accent conj-auto-btn" onclick="autoGuessConjForms('${t.key}')" style="margin-bottom:8px;font-size:10px">✨ 活用を自動推定する</button>`
       : '';
-    const rows = PRONOUNS.map(pr => {
+    const rows = PRONOUNS.filter(pr => !PRONOUN_HIDDEN.has(pr)).map(pr => {
       const safeKey = t.key + '_' + pr.replace(/[^a-z]/gi,'');
       const saved = savedConj[safeKey] || {};
       return `<tr>
-        <td class="conj-pron">${pr}</td>
+        <td class="conj-pron">${PRONOUN_LABEL[pr] || pr}</td>
         <td><input class="conj-input" id="conj-form-${safeKey}" value="${escHtml(saved.form||'')}" placeholder="活用形" onblur="autoSaveDictEntry(false)"></td>
         <td><input class="conj-input" id="conj-ex-${safeKey}" value="${escHtml(saved.example||'')}" placeholder="例文" onblur="autoSaveDictEntry(false)"></td>
         <td><input class="conj-input jp-input" id="conj-jp-${safeKey}" value="${escHtml(saved.meaning||'')}" placeholder="日本語の意味" onblur="autoSaveDictEntry(false)"></td>
@@ -5733,6 +5740,7 @@ function buildDictPanelHTML(entry) {
         html += `</div>`;
       } else {
         const PRONOUNS_LIST = ['yo','tú','usted','él/ella','nosotros','ustedes','ellos/ellas'];
+        const PRONOUNS_DISPLAY_LIST = PRONOUNS_LIST.filter(pr => !PRONOUN_HIDDEN.has(pr));
         const TENSES_LIST = [
           {key:'presente',label:'現在',sub:'Presente'},{key:'preterito',label:'点過去',sub:'Pretérito'},
           {key:'imperfecto',label:'線過去',sub:'Imperfecto'},{key:'ir_a',label:'近い未来',sub:'Ir a'},
@@ -5750,11 +5758,11 @@ function buildDictPanelHTML(entry) {
           html += `</div>`;
           activeTenses.forEach((t,i) => {
             html += `<div class="dp-conj-table-wrap" id="${panelId}-${t.key}" style="${i===0?'':'display:none'}"><table class="dp-conj-table"><thead><tr><th>代名詞</th><th>活用</th><th>例文（ES）</th><th>意味（JP）</th></tr></thead><tbody>`;
-            PRONOUNS_LIST.forEach(pr => {
+            PRONOUNS_DISPLAY_LIST.forEach(pr => {
               const k=t.key+'_'+pr.replace(/[^a-z]/gi,'');
               const cell=conj[k]||{};
               if(!cell.form&&!cell.example&&!cell.meaning) return;
-              html += `<tr><td class="dp-ct-pron">${escHtml(pr)}</td><td class="dp-ct-form">${escHtml(cell.form||'')}</td><td class="dp-ct-ex">${escHtml(cell.example||'')}</td><td class="dp-ct-jp">${escHtml(cell.meaning||'')}</td></tr>`;
+              html += `<tr><td class="dp-ct-pron">${escHtml(PRONOUN_LABEL[pr]||pr)}</td><td class="dp-ct-form">${escHtml(cell.form||'')}</td><td class="dp-ct-ex">${escHtml(cell.example||'')}</td><td class="dp-ct-jp">${escHtml(cell.meaning||'')}</td></tr>`;
             });
             html += `</tbody></table></div>`;
           });
