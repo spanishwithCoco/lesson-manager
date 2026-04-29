@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+￥<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -1776,7 +1776,7 @@ textarea.input-field { resize: vertical; min-height: 70px; }
       <button class="fc-filter-chip" onclick="setFCTypeFilter('phrase',this)">💬 フレーズ</button>
       <button class="fc-filter-chip" onclick="setFCTypeFilter('word',this)">📖 単語</button>
     </div>
-    <div class="fc-filter-bar" id="fc-cat-filter-bar"><!-- JS --></div>
+    <div class="fc-filter-bar" id="fc-cat-filter-bar" style="display:none"><!-- JS --></div>
     <div id="fc-list-container"><!-- JS --></div>
     <div class="pagination" id="fc-pagination"><!-- JS --></div>
   </div>
@@ -5472,16 +5472,7 @@ function setFCCatFilter(catId, el) {
 }
 
 function renderFCCatFilterBar() {
-  const db = loadDB();
-  const cats = db.fc_categories || [];
-  const bar = document.getElementById('fc-cat-filter-bar');
-  if (!bar) return;
-  if (!cats.length) { bar.innerHTML = ''; return; }
-  bar.innerHTML =
-    `<button class="fc-filter-chip all${_fcCatFilter===''?' active':''}" onclick="setFCCatFilter('',this)">すべて</button>` +
-    cats.map(c =>
-      `<button class="fc-filter-chip${_fcCatFilter===c.id?' active':''}" onclick="setFCCatFilter('${c.id}',this)">${escHtml(c.name)}</button>`
-    ).join('');
+  // カテゴリ（時制）フィルターバーはフラッシュカード管理画面では非表示
 }
 
 async function renderFlashcardList(doSync) {
