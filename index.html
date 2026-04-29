@@ -2933,10 +2933,14 @@ function goCreateStep4() {
 // ── Supabase Storage helpers ──────────────────────
 const STORAGE_BUCKET = 'lesson-audio';
 
+// パスを「フォルダ/ファイル名」の形でセグメントごとにエンコード
+function encodeStoragePath(path) {
+  return path.split('/').map(seg => encodeURIComponent(seg)).join('/');
+}
+
 async function storageUpload(path, file) {
-  // ファイルをArrayBufferとして読み込む
   const buffer = await file.arrayBuffer();
-  const r = await fetch(`${SB_URL}/storage/v1/object/${STORAGE_BUCKET}/${encodeURIComponent(path)}`, {
+  const r = await fetch(`${SB_URL}/storage/v1/object/${STORAGE_BUCKET}/${encodeStoragePath(path)}`, {
     method: 'POST',
     headers: {
       'apikey': SB_KEY,
@@ -2954,16 +2958,15 @@ async function storageUpload(path, file) {
 }
 
 async function storageDelete(path) {
-  const r = await fetch(`${SB_URL}/storage/v1/object/${STORAGE_BUCKET}/${encodeURIComponent(path)}`, {
+  const r = await fetch(`${SB_URL}/storage/v1/object/${STORAGE_BUCKET}/${encodeStoragePath(path)}`, {
     method: 'DELETE',
     headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
   });
-  // 404は無視（すでに消えている場合）
   if (!r.ok && r.status !== 404) throw new Error('Storage delete failed');
 }
 
 async function storageSignedUrl(path, expiresIn = 3600) {
-  const r = await fetch(`${SB_URL}/storage/v1/object/sign/${STORAGE_BUCKET}/${encodeURIComponent(path)}`, {
+  const r = await fetch(`${SB_URL}/storage/v1/object/sign/${STORAGE_BUCKET}/${encodeStoragePath(path)}`, {
     method: 'POST',
     headers: {
       'apikey': SB_KEY,
