@@ -998,10 +998,10 @@ textarea.input-field { resize: vertical; min-height: 70px; }
 .pos-btn-phrase.selected { background: var(--accent); color: #fff; }
 
 /* 活用表 */
-.conj-table-wrap { overflow-x: auto; margin-top: 8px; }
+.conj-table-wrap { overflow-x: auto; margin-top: 8px; -webkit-overflow-scrolling: touch; }
 .conj-table {
   width: 100%; border-collapse: collapse;
-  font-size: 12px;
+  font-size: 12px; min-width: 560px;
 }
 .conj-table th {
   background: var(--surface2);
@@ -1016,6 +1016,11 @@ textarea.input-field { resize: vertical; min-height: 70px; }
   padding: 4px 6px;
   vertical-align: middle;
 }
+/* 列ごとの最小幅 */
+.conj-table th:nth-child(1), .conj-table td:nth-child(1) { min-width: 80px; }
+.conj-table th:nth-child(2), .conj-table td:nth-child(2) { min-width: 110px; }
+.conj-table th:nth-child(3), .conj-table td:nth-child(3) { min-width: 200px; }
+.conj-table th:nth-child(4), .conj-table td:nth-child(4) { min-width: 160px; }
 .conj-pron {
   font-family: 'DM Mono', monospace;
   font-size: 11px; color: var(--accent2);
