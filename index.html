@@ -53,6 +53,73 @@ body {
   line-height: 1.7;
 }
 
+/* ── LOGIN SCREEN ── */
+.login-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: var(--bg);
+}
+.login-box {
+  width: 100%;
+  max-width: 360px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 36px 28px;
+  box-shadow: var(--shadow-lg);
+}
+.login-logo {
+  font-family: 'DM Serif Display', serif;
+  font-size: 36px;
+  color: var(--accent);
+  text-align: center;
+  margin-bottom: 4px;
+}
+.login-sub {
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+  margin-bottom: 28px;
+}
+.login-error {
+  color: var(--red);
+  font-size: 12px;
+  margin-bottom: 10px;
+  min-height: 18px;
+  text-align: center;
+}
+.login-user-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 8px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+}
+.login-user-email {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--accent2);
+}
+.logout-btn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all .15s;
+}
+.logout-btn:hover { border-color: var(--red); color: var(--red); }
+
 /* ── STICKY UTILITY ── */
 .sticky-top {
   position: sticky;
@@ -1486,7 +1553,36 @@ textarea.input-field { resize: vertical; min-height: 70px; }
 <!-- ═══════════════════════════════════════════════
      TOP PAGE
 ═══════════════════════════════════════════════ -->
-<div class="screen active" id="screen-top">
+<!-- ═══════════════════════════════════════════════
+     LOGIN SCREEN
+═══════════════════════════════════════════════ -->
+<div class="screen active" id="screen-login">
+  <div class="login-wrap">
+    <div class="login-box">
+      <div class="login-logo">VOZ</div>
+      <div class="login-sub">スペイン語レッスン管理</div>
+      <div class="input-group">
+        <label class="input-label">メールアドレス</label>
+        <input type="email" class="input-field" id="login-email" placeholder="your@email.com"
+          onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div class="input-group">
+        <label class="input-label">パスワード</label>
+        <input type="password" class="input-field" id="login-password" placeholder="••••••••"
+          onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div class="login-error" id="login-error"></div>
+      <button class="btn-primary" id="login-btn" onclick="doLogin()">ログイン</button>
+    </div>
+  </div>
+</div>
+
+<div class="screen" id="screen-top">
+  <!-- ログインユーザー表示バー -->
+  <div class="login-user-bar" id="user-bar">
+    <span class="login-user-email" id="user-email-display"></span>
+    <button class="logout-btn" onclick="doLogout()">ログアウト</button>
+  </div>
   <div class="hero container" style="padding-top:32px">
     <div class="app-title">レッスン管理</div>
     <div class="app-sub">スペイン語レッスンを作成・管理する</div>
@@ -6468,13 +6564,112 @@ function nowStr() {
   return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
 
+// ── AUTH ─────────────────────────────────────────
+let _currentSession = null; // { access_token, user }
+
+// ログイン済みセッションをlocalStorageから復元
+function loadSession() {
+  try {
+    const raw = localStorage.getItem('voz_session');
+    if (!raw) return null;
+    const s = JSON.parse(raw);
+    // 有効期限チェック（expires_at はUnix秒）
+    if (s.expires_at && Date.now() / 1000 > s.expires_at) {
+      localStorage.removeItem('voz_session');
+      return null;
+    }
+    return s;
+  } catch { return null; }
+}
+
+function saveSession(session) {
+  _currentSession = session;
+  try { localStorage.setItem('voz_session', JSON.stringify(session)); } catch(e) {}
+  // Supabaseリクエスト用のAuthorizationヘッダーをセッショントークンで更新
+  sbHeaders['Authorization'] = 'Bearer ' + session.access_token;
+}
+
+function clearSession() {
+  _currentSession = null;
+  localStorage.removeItem('voz_session');
+  sbHeaders['Authorization'] = 'Bearer ' + SB_KEY;
+}
+
+async function doLogin() {
+  const email    = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl    = document.getElementById('login-error');
+  const btn      = document.getElementById('login-btn');
+
+  if (!email || !password) { errEl.textContent = 'メールアドレスとパスワードを入力してください'; return; }
+
+  btn.textContent = 'ログイン中...';
+  btn.disabled = true;
+  errEl.textContent = '';
+
+  try {
+    const r = await fetch(`${SB_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SB_KEY },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error_description || data.msg || 'ログインに失敗しました');
+
+    saveSession(data);
+    onLoginSuccess(data.user?.email || email);
+  } catch(e) {
+    errEl.textContent = e.message;
+    btn.textContent = 'ログイン';
+    btn.disabled = false;
+  }
+}
+
+function onLoginSuccess(email) {
+  // ユーザーバーにメールを表示
+  const emailEl = document.getElementById('user-email-display');
+  if (emailEl) emailEl.textContent = email;
+
+  // ログイン画面を非表示、トップへ
+  document.getElementById('screen-login').classList.remove('active');
+  document.getElementById('screen-top').classList.add('active');
+
+  // データ読み込み
+  renderTop(false);
+  syncFromSupabase().then(() => renderTop(false));
+}
+
+async function doLogout() {
+  try {
+    await fetch(`${SB_URL}/auth/v1/logout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SB_KEY,
+                 'Authorization': 'Bearer ' + (_currentSession?.access_token || SB_KEY) }
+    });
+  } catch(e) {}
+  clearSession();
+  // 全スクリーンを非表示にしてログイン画面へ
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-login').classList.add('active');
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-password').value = '';
+  document.getElementById('login-error').textContent = '';
+}
+
 // ── INIT ────────────────────────────────────────
 (async () => {
-  // まずローカルキャッシュで即時表示
-  renderTop(false);
-  // Supabaseから最新データを取得して再描画
-  const synced = await syncFromSupabase();
-  renderTop(false);
+  const session = loadSession();
+  if (session) {
+    // セッションあり → そのままトップへ
+    saveSession(session);
+    document.getElementById('screen-login').classList.remove('active');
+    document.getElementById('screen-top').classList.add('active');
+    const emailEl = document.getElementById('user-email-display');
+    if (emailEl) emailEl.textContent = session.user?.email || '';
+    renderTop(false);
+    syncFromSupabase().then(() => renderTop(false));
+  }
+  // セッションなし → screen-login が active のまま（何もしない）
 })();
 </script>
 </body>
