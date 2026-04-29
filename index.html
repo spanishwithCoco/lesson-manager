@@ -1465,7 +1465,7 @@ textarea.input-field { resize: vertical; min-height: 70px; }
       <div class="card-label">レッスンページ プレビュー（ステップ③）</div>
       <div class="preview-frame" id="preview-content"><!-- JS --></div>
     </div>
-    <button class="btn-primary" onclick="goCreateStep4()">この内容でレッスンを作成する →</button>
+    <button class="btn-primary" onclick="goCreateStep4()">公開設定へ進む →</button>
   </div>
 
   <!-- STEP 4 -->
@@ -1873,9 +1873,10 @@ async function syncFromSupabase() {
     ]);
     const db = getDB();
     db.lessons = lessons.map(l => ({
-      id: l.id, name: l.name, url: l.url, date: l.date,
+      id: l.id, name: l.name, url: l.url || '', date: l.date,
       audioData: l.audio_data || [],
-      visibility: l.visibility || 'private'
+      visibility: l.visibility || 'private',
+      audio_paths: l.audio_paths || []
     }));
     db.phrases = {};
     db.words   = {};
@@ -1947,9 +1948,10 @@ function setSyncBadge(syncing, success) {
 // ── PUSH lesson to Supabase ──────────────────────
 async function pushLesson(lesson) {
   await sbUpsert('lessons', {
-    id: lesson.id, name: lesson.name, url: lesson.url,
+    id: lesson.id, name: lesson.name, url: lesson.url || '',
     date: lesson.date, audio_data: lesson.audioData,
-    visibility: lesson.visibility || 'private'
+    visibility: lesson.visibility || 'private',
+    audio_paths: lesson.audio_paths || []
   });
 }
 
@@ -2924,175 +2926,269 @@ document.addEventListener('click', e => {
 // ── STEP 4 ───────────────────────────────────────
 function goCreateStep4() {
   saveWip({ step: 4 });
-  buildChecklist();
+  buildPublishPanel();
   showCreateStep(4);
 }
 
-function buildChecklist() {
-  const name     = document.getElementById('lesson-name').value.trim() || 'lesson';
-  const safeName = name.replace(/\s+/g, '-').toLowerCase();
-  const lessonHTML = generateLessonHTML(name);
-  window._lessonCode = lessonHTML; // for copyCode
+// ── Supabase Storage helpers ──────────────────────
+const STORAGE_BUCKET = 'lesson-audio';
 
+async function storageUpload(path, file) {
+  // ファイルをArrayBufferとして読み込む
+  const buffer = await file.arrayBuffer();
+  const r = await fetch(`${SB_URL}/storage/v1/object/${STORAGE_BUCKET}/${encodeURIComponent(path)}`, {
+    method: 'POST',
+    headers: {
+      'apikey': SB_KEY,
+      'Authorization': 'Bearer ' + SB_KEY,
+      'Content-Type': file.type || 'audio/mpeg',
+      'x-upsert': 'true'
+    },
+    body: buffer
+  });
+  if (!r.ok) {
+    const err = await r.text();
+    throw new Error('Storage upload failed: ' + err);
+  }
+  return path;
+}
+
+async function storageDelete(path) {
+  const r = await fetch(`${SB_URL}/storage/v1/object/${STORAGE_BUCKET}/${encodeURIComponent(path)}`, {
+    method: 'DELETE',
+    headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
+  });
+  // 404は無視（すでに消えている場合）
+  if (!r.ok && r.status !== 404) throw new Error('Storage delete failed');
+}
+
+async function storageSignedUrl(path, expiresIn = 3600) {
+  const r = await fetch(`${SB_URL}/storage/v1/object/sign/${STORAGE_BUCKET}/${encodeURIComponent(path)}`, {
+    method: 'POST',
+    headers: {
+      'apikey': SB_KEY,
+      'Authorization': 'Bearer ' + SB_KEY,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ expiresIn })
+  });
+  if (!r.ok) throw new Error('Signed URL failed');
+  const data = await r.json();
+  return SB_URL + '/storage/v1' + data.signedURL;
+}
+
+// ── 公開パネルを構築 ──────────────────────────────
+function buildPublishPanel() {
+  const name = document.getElementById('lesson-name').value.trim() || 'lesson';
   const db = getDB();
-  const wip = db.wip.find(w => w.id === currentWipId);
   const existingLesson = db.lessons.find(l => l.id === currentWipId);
-  const savedUrl = wip?.url || existingLesson?.url || '';
+  const audioCount = audioData.length;
 
-  const codeKB = Math.round(lessonHTML.length / 1000);
+  // 必要なMP3ファイル一覧
+  const requiredFiles = [
+    name + ' ×1.mp3',
+    name + ' ×0.75.mp3',
+    name + ' ×0.5.mp3',
+    ...Array.from({length: audioCount}, (_,i) => name + '-A' + (i+1) + '.mp3')
+  ];
+
+  // 既存のaudio_pathsがあれば表示
+  const existingPaths = existingLesson?.audio_paths || [];
+  const isUpdate = existingPaths.length > 0;
 
   document.getElementById('checklist-container').innerHTML = `
-
-    <!-- STEP 1 -->
-    <div class="checklist-item" id="chk-1">
-      <input type="checkbox" onchange="toggleCheck(1,this)">
-      <div class="checklist-content">
-        <div class="checklist-title">1. オーディオを収録する</div>
-        <div class="checklist-desc">
-          以下のファイル名で音源を収録・保存してください
-        </div>
-        <div style="margin-top:8px">
-          <button class="btn-small" onclick="toggleRecordingFileList(this)" style="font-size:11px">＋ ファイル一覧を確認する</button>
-        </div>
-        <div id="recording-file-list" style="display:none;margin-top:8px"><!-- JS --></div>
-      </div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-label">📋 必要なMP3ファイル（${requiredFiles.length}件）</div>
+      ${requiredFiles.map(f => `
+        <div class="file-item">
+          <span class="file-name">${escHtml(f)}</span>
+        </div>`).join('')}
     </div>
 
-    <!-- STEP 2 -->
-    <div class="checklist-item" id="chk-2">
-      <input type="checkbox" onchange="toggleCheck(2,this)">
-      <div class="checklist-content">
-        <div class="checklist-title">2. GitHub に新しいリポジトリを作成</div>
-        <div class="checklist-desc">
-          GitHub.com にログイン → 右上の「＋」→「New repository」<br><br>
-          <strong>・Repository name</strong>
-        </div>
-        <div class="file-item" style="margin-top:6px;margin-bottom:10px">
-          <span class="file-name">${escHtml(safeName)}</span>
-          <button class="btn-small" onclick="copyText('${safeName.replace(/'/g,"\\'")}')">コピー</button>
-        </div>
-        <div class="checklist-desc">
-          ・「<strong>Public</strong>」を選択<br>
-          ・「<strong>Create repository</strong>」をクリック<br>
-          ・作成したリポジトリのページで「<strong>creating a new file</strong>」をクリック
-        </div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-label">🎵 MP3ファイルをアップロード</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.7">
+        収録したMP3ファイルを選択してください。<br>
+        Supabase Storage（private）に自動アップロードされ、<br>
+        ログインユーザーのみが署名付きURLで再生できます。
       </div>
-    </div>
-
-    <!-- STEP 3 -->
-    <div class="checklist-item" id="chk-3">
-      <input type="checkbox" onchange="toggleCheck(3,this)">
-      <div class="checklist-content">
-        <div class="checklist-title">3. index.html を作成してコードを貼り付ける</div>
-        <div class="checklist-desc">
-          <strong>${escHtml(safeName)} ／ index.html</strong> in main となるように以下をコピーして貼り付け
-        </div>
-        <div class="file-item" style="margin-top:8px;margin-bottom:10px">
-          <span class="file-name">index.html</span>
-          <button class="btn-small" onclick="copyText('index.html')">コピー</button>
-        </div>
-        <div class="checklist-desc" style="margin-bottom:8px">以下コードをコピーして貼り付ける（${codeKB}KB）</div>
-        <div class="code-block" style="font-size:10px;color:#888;padding:10px 14px">
-          コードは下のボタンでコピーしてください
-        </div>
-        <button class="copy-code-btn" id="copybtn-main" onclick="copyLessonCode()">コードをコピー</button>
-        <div class="checklist-desc" style="margin-top:10px">
-          コードを貼り付けたら「<strong>Commit changes</strong>」を押す
-        </div>
-      </div>
-    </div>
-
-    <!-- STEP 4 -->
-    <div class="checklist-item" id="chk-4">
-      <input type="checkbox" onchange="toggleCheck(4,this)">
-      <div class="checklist-content">
-        <div class="checklist-title">4. 音源ファイルを追加する</div>
-        <div class="checklist-desc">
-          <strong>&lt;&gt; Code</strong> の左隣にある「<strong>＋</strong>」ボタンを押し、<strong>Upload files</strong> を選択<br><br>
-          保存した音源ファイルをすべてドラッグ＆ドロップする<br><br>
-          ファイルの読み込みが完了したら「<strong>Commit changes</strong>」を押す
-        </div>
-      </div>
-    </div>
-
-    <!-- STEP 5 -->
-    <div class="checklist-item" id="chk-5">
-      <input type="checkbox" onchange="toggleCheck(5,this)">
-      <div class="checklist-content">
-        <div class="checklist-title">5. GitHub Pages を有効にする</div>
-        <div class="checklist-desc">
-          Settings → Pages → Source: "<strong>Deploy from a branch</strong>"<br>
-          → branch: <strong>main</strong> → <strong>Save</strong>
-        </div>
-      </div>
-    </div>
-
-    <!-- STEP 6 -->
-    <div class="checklist-item" id="chk-6">
-      <input type="checkbox" onchange="toggleCheck(6,this)">
-      <div class="checklist-content">
-        <div class="checklist-title">6. URLを取得する</div>
-        <div class="checklist-desc">
-          数分経ってから、Settings → Pages を選択<br>
-          以下のように表示される：<br>
-          <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent2)">
-            Your site is live at https://【ユーザー名】.github.io/${escHtml(safeName)}/
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <!-- STEP 7: URL入力 -->
-    <div class="checklist-item" id="chk-7">
-      <input type="checkbox" onchange="toggleCheck(7,this)">
-      <div class="checklist-content">
-        <div class="checklist-title">7. 公開したURLを入力して保存</div>
-        <div class="input-group" style="margin-top:10px;margin-bottom:6px">
-          <label class="input-label">レッスンページURL</label>
-          <input type="url" class="input-field" id="lesson-url"
-            placeholder="https://yourname.github.io/${escHtml(safeName)}/"
-            value="${escHtml(savedUrl)}">
-        </div>
-        <button class="btn-small accent" onclick="saveUrl()">保存</button>
-      </div>
-    </div>
-
-    <div style="margin-top:24px">
-      <button class="btn-primary" style="background:var(--green)" onclick="finishLesson()">
-        レッスン作成を終了し、作成済みレッスンとして保存する
+      <input type="file" id="mp3-file-input" accept="audio/mpeg,audio/mp3,.mp3"
+        multiple style="display:none" onchange="onMp3FilesSelected(this)">
+      <button class="btn-secondary" onclick="document.getElementById('mp3-file-input').click()">
+        📂 MP3ファイルを選択
       </button>
+      <div id="mp3-selected-list" style="margin-top:12px"></div>
     </div>
+
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-label">⚙️ レッスン設定</div>
+      <div class="input-group" style="margin-bottom:0">
+        <label class="input-label">公開設定（ユーザーページでの表示範囲）</label>
+        <select class="vis-select" id="publish-visibility" style="width:100%;padding:10px 14px;font-size:13px"
+          data-vis="${escHtml(existingLesson?.visibility || 'members')}">
+          <option value="public"  ${(existingLesson?.visibility||'members')==='public'  ?'selected':''}>🌐 無料公開（ログイン不要）</option>
+          <option value="members" ${(existingLesson?.visibility||'members')==='members' ?'selected':''}>🔒 メンバー限定（ログイン必須）</option>
+          <option value="premium" ${(existingLesson?.visibility||'members')==='premium' ?'selected':''}>⭐ プレミアム限定</option>
+          <option value="private" ${(existingLesson?.visibility||'members')==='private' ?'selected':''}>🚫 非公開（管理者のみ）</option>
+        </select>
+      </div>
+    </div>
+
+    ${isUpdate ? `
+    <div style="background:rgba(61,107,140,0.08);border:1px solid var(--accent2);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--accent2)">
+      📦 このレッスンはすでにSupabaseに保存されています。<br>
+      MP3を再選択しなかった場合は既存の音声ファイルが保持されます。
+    </div>` : ''}
+
+    <div id="upload-progress" style="display:none;margin-bottom:16px">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px" id="upload-status">アップロード中...</div>
+      <div style="background:var(--surface2);border-radius:6px;height:8px;overflow:hidden">
+        <div id="upload-bar" style="background:var(--accent);height:100%;width:0%;transition:width .3s;border-radius:6px"></div>
+      </div>
+    </div>
+
+    <button class="btn-primary" style="background:var(--green)" id="publish-btn" onclick="publishLesson()">
+      🚀 公開する（Supabaseに保存）
+    </button>
   `;
 
-  // Recording file list for step 1（オーディオ収録）
+  // ファイル選択状態を復元
+  window._selectedMp3Files = [];
+}
+
+// ── ファイル選択時の処理 ──────────────────────────
+window._selectedMp3Files = [];
+
+function onMp3FilesSelected(input) {
+  window._selectedMp3Files = Array.from(input.files);
+  const name = document.getElementById('lesson-name').value.trim() || 'lesson';
   const audioCount = audioData.length;
-  const recordingFileListEl = document.getElementById('recording-file-list');
-  if (recordingFileListEl) {
-    const files = [
-      name + ' ×1.mp3',
-      name + ' ×0.75.mp3',
-      name + ' ×0.5.mp3',
-      ...Array.from({length: audioCount}, (_,i) => name + '-A' + (i+1) + '.mp3')
-    ];
-    const checkKey = 'file_checks_' + (currentWipId || 'new');
-    let savedChecks = {};
-    try { savedChecks = JSON.parse(localStorage.getItem(checkKey) || '{}'); } catch(e) {}
-    recordingFileListEl.innerHTML = files.map((f, i) => `
-      <div class="file-item" id="rec-check-item-${i}">
-        <input type="checkbox" id="rec-check-${i}" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent);flex-shrink:0;" onchange="toggleFileCheck(${i},this,'rec-check-name-')">
-        <span class="file-name" id="rec-check-name-${i}" style="text-decoration:${savedChecks[i]?'line-through':'none'};color:${savedChecks[i]?'var(--muted)':'inherit'}">${escHtml(f)}</span>
-        <button class="btn-small" onclick="copyText('${f.replace(/'/g,"\\'")}')">コピー</button>
-      </div>
-    `).join('');
-    files.forEach((_, i) => {
-      const cb = document.getElementById('rec-check-' + i);
-      if (cb && savedChecks[i]) cb.checked = true;
+  const requiredFiles = [
+    name + ' ×1.mp3',
+    name + ' ×0.75.mp3',
+    name + ' ×0.5.mp3',
+    ...Array.from({length: audioCount}, (_,i) => name + '-A' + (i+1) + '.mp3')
+  ];
+
+  const container = document.getElementById('mp3-selected-list');
+  if (!window._selectedMp3Files.length) { container.innerHTML = ''; return; }
+
+  const selectedNames = window._selectedMp3Files.map(f => f.name);
+  container.innerHTML = `
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">${window._selectedMp3Files.length}件選択済み</div>
+    ${window._selectedMp3Files.map(f => {
+      const isExpected = requiredFiles.includes(f.name);
+      return `<div class="file-item">
+        <span style="font-size:14px;margin-right:4px">${isExpected ? '✅' : '⚠️'}</span>
+        <span class="file-name">${escHtml(f.name)}</span>
+        <span style="font-size:11px;color:var(--muted)">${(f.size/1024).toFixed(0)}KB</span>
+      </div>`;
+    }).join('')}
+    ${requiredFiles.filter(r => !selectedNames.includes(r)).length ? `
+      <div style="margin-top:8px;padding:8px 12px;background:rgba(192,57,43,0.08);border:1px solid var(--red);border-radius:8px;font-size:11px;color:var(--red)">
+        ⚠️ 未選択のファイル：${requiredFiles.filter(r => !selectedNames.includes(r)).map(escHtml).join('、')}
+      </div>` : ''}
+  `;
+}
+
+// ── 公開処理（Storage upload + DB保存） ───────────
+async function publishLesson() {
+  const name = document.getElementById('lesson-name').value.trim();
+  if (!name) { toast('レッスン名を入力してください'); return; }
+
+  const visibility = document.getElementById('publish-visibility')?.value || 'members';
+  const btn = document.getElementById('publish-btn');
+  const progressEl = document.getElementById('upload-progress');
+  const statusEl   = document.getElementById('upload-status');
+  const barEl      = document.getElementById('upload-bar');
+
+  btn.disabled = true;
+  btn.textContent = '処理中...';
+
+  const db = getDB();
+  const existingIdx = db.lessons.findIndex(l => l.id === currentWipId);
+  const originalDate = existingIdx >= 0 ? db.lessons[existingIdx].date : todayStr();
+  const existingPaths = existingIdx >= 0 ? (db.lessons[existingIdx].audio_paths || []) : [];
+
+  // ── MP3アップロード ──
+  let audioPaths = [...existingPaths]; // 既存パスを引き継ぐ
+
+  if (window._selectedMp3Files && window._selectedMp3Files.length > 0) {
+    progressEl.style.display = 'block';
+    const files = window._selectedMp3Files;
+    const newPaths = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const storagePath = `${currentWipId}/${file.name}`;
+      statusEl.textContent = `アップロード中… ${file.name} (${i+1}/${files.length})`;
+      barEl.style.width = Math.round((i / files.length) * 90) + '%';
+      try {
+        await storageUpload(storagePath, file);
+        newPaths.push(storagePath);
+      } catch(e) {
+        console.error('Upload error:', e);
+        toast('アップロードエラー: ' + file.name);
+        btn.disabled = false;
+        btn.textContent = '🚀 公開する（Supabaseに保存）';
+        progressEl.style.display = 'none';
+        return;
+      }
+    }
+    barEl.style.width = '100%';
+    statusEl.textContent = 'アップロード完了！DB保存中...';
+
+    // 新しいパスで既存パスを更新（同名ファイルは上書き）
+    newPaths.forEach(np => {
+      const fname = np.split('/').pop();
+      const idx = audioPaths.findIndex(ep => ep.split('/').pop() === fname);
+      if (idx >= 0) audioPaths[idx] = np;
+      else audioPaths.push(np);
     });
+  }
+
+  // ── Supabase DB保存 ──
+  const lesson = {
+    id: currentWipId, name,
+    url: '',  // URLはSupabase Storage版では使わない（後方互換のため空文字）
+    date: originalDate,
+    audioData,
+    visibility,
+    audio_paths: audioPaths
+  };
+
+  if (existingIdx >= 0) db.lessons[existingIdx] = lesson;
+  else db.lessons.push(lesson);
+  db.wip = db.wip.filter(w => w.id !== currentWipId);
+  saveDB(db);
+
+  try {
+    await sbUpsert('lessons', {
+      id: lesson.id,
+      name: lesson.name,
+      url: lesson.url,
+      date: lesson.date,
+      audio_data: lesson.audioData,
+      visibility: lesson.visibility,
+      audio_paths: lesson.audio_paths
+    });
+    await sbDelete('wip', { id: currentWipId }).catch(()=>{});
+
+    progressEl.style.display = 'none';
+    toast('レッスンを公開しました 🎉');
+    setTimeout(() => { showScreen('screen-top'); }, 800);
+  } catch(e) {
+    toast('ローカル保存済み（クラウド同期エラー）');
+    console.error(e);
+    btn.disabled = false;
+    btn.textContent = '🚀 公開する（Supabaseに保存）';
+    progressEl.style.display = 'none';
   }
 }
 
 function toggleCheck(n, cb) {
-  document.getElementById('chk-'+n).classList.toggle('checked', cb.checked);
+  const el = document.getElementById('chk-'+n);
+  if (el) el.classList.toggle('checked', cb.checked);
 }
 
 function toggleFileCheck(i, cb, prefix) {
@@ -3143,8 +3239,10 @@ function copyCode(n) {
   });
 }
 
+// 後方互換：古いURLベースのレッスン用
 async function saveUrl() {
-  const url = document.getElementById('lesson-url').value.trim();
+  const url = document.getElementById('lesson-url')?.value.trim();
+  if (!url) return;
   const db  = getDB();
   const wipIdx = db.wip.findIndex(w => w.id === currentWipId);
   if (wipIdx >= 0) { db.wip[wipIdx].url = url; }
@@ -3157,36 +3255,9 @@ async function saveUrl() {
   toast('URLを保存しました');
 }
 
+// 後方互換：旧フロー用（現在はpublishLessonを使用）
 async function finishLesson() {
-  const url  = document.getElementById('lesson-url').value.trim();
-  const name = document.getElementById('lesson-name').value.trim();
-  if (!url) { toast('URLを入力してから終了してください'); return; }
-
-  const db = getDB();
-  const existingIdx = db.lessons.findIndex(l => l.id === currentWipId);
-  const originalDate = existingIdx >= 0 ? db.lessons[existingIdx].date : todayStr();
-
-  const lesson = {
-    id: currentWipId, name, url,
-    date: originalDate, audioData,
-    visibility: existingIdx >= 0 ? (db.lessons[existingIdx].visibility || 'private') : 'private'
-  };
-
-  if (existingIdx >= 0) db.lessons[existingIdx] = lesson;
-  else db.lessons.push(lesson);
-  db.wip = db.wip.filter(w => w.id !== currentWipId);
-  saveDB(db);
-
-  try {
-    await pushLesson(lesson);
-    // 完了したwipをSupabaseからも削除
-    await sbDelete('wip', { id: currentWipId }).catch(()=>{});
-    toast('レッスンを保存しました！');
-  } catch(e) {
-    toast('ローカル保存済み（クラウド同期エラー）');
-    console.error(e);
-  }
-  setTimeout(() => { showScreen('screen-top'); }, 600);
+  await publishLesson();
 }
 
 // ═══════════════════════════════════════════════
@@ -3232,10 +3303,11 @@ async function renderLessonList(doSync) {
           <select class="vis-select" data-vis="${vis}" data-id="${l.id}" data-type="lesson"
             onchange="updateVisibility('lesson','${l.id}',this)">
             <option value="public"  ${vis==='public'  ?'selected':''}>🌐 無料公開</option>
-            <option value="members" ${vis==='members' ?'selected':''}>🔒 限定公開</option>
+            <option value="members" ${vis==='members' ?'selected':''}>🔒 メンバー限定</option>
+            <option value="premium" ${vis==='premium' ?'selected':''}>⭐ プレミアム</option>
             <option value="private" ${vis==='private' ?'selected':''}>🚫 非公開</option>
           </select>
-          <button class="btn-small" onclick="window.open('${escHtml(l.url)}','_blank')">確認</button>
+          ${(l.audio_paths && l.audio_paths.length) ? `<span title="Supabase Storageに音声あり（${l.audio_paths.length}件）" style="font-size:14px;cursor:default">🎵</span>` : (l.url ? `<button class="btn-small" onclick="window.open('${escHtml(l.url)}','_blank')">確認</button>` : '')}
           <button class="btn-small" onclick="editLesson('${l.id}')">編集</button>
         </div>
       </div>`;
@@ -3253,7 +3325,8 @@ function editLesson(id) {
   document.getElementById('create-title').textContent = lesson.name || '';
   const wipIdx = db.wip.findIndex(w => w.id === id);
   const wipEntry = { id, name: lesson.name, audioCount: audioData.length,
-                     step: 1, date: nowStr(), audioData: audioData, url: lesson.url };
+                     step: 1, date: nowStr(), audioData: audioData, url: lesson.url || '',
+                     audio_paths: lesson.audio_paths || [] };
   if (wipIdx >= 0) db.wip[wipIdx] = wipEntry;
   else db.wip.push(wipEntry);
   db.wip = db.wip.filter((w, i) => db.wip.findIndex(x => x.id === w.id) === i);
@@ -3400,8 +3473,9 @@ async function updateVisibility(type, id, selectEl) {
       try {
         await sbUpsert('lessons', {
           id: db.lessons[idx].id, name: db.lessons[idx].name,
-          url: db.lessons[idx].url, date: db.lessons[idx].date,
-          audio_data: db.lessons[idx].audioData, visibility: vis
+          url: db.lessons[idx].url || '', date: db.lessons[idx].date,
+          audio_data: db.lessons[idx].audioData, visibility: vis,
+          audio_paths: db.lessons[idx].audio_paths || []
         });
       } catch(e) { console.warn('visibility sync error:', e); }
     }
