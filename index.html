@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+\<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -1797,6 +1797,19 @@ textarea.input-field { resize: vertical; min-height: 70px; }
 
 <!-- fc-from-dict-modal removed: word+examples are now auto-registered as flashcards on dict save -->
 
+<!-- レッスンプレビューモーダル -->
+<div class="modal-overlay" id="lesson-preview-modal">
+  <div class="modal-box" style="max-width:600px">
+    <div class="modal-header">
+      <h2 id="lesson-preview-title">レッスンプレビュー</h2>
+      <button class="modal-close" onclick="closeLessonPreview()">✕</button>
+    </div>
+    <div class="modal-body" id="lesson-preview-body" style="max-height:70vh;overflow-y:auto">
+      <!-- JS -->
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════════════════════════════════════════
      JAVASCRIPT
 ═══════════════════════════════════════════════ -->
@@ -3311,11 +3324,12 @@ async function renderLessonList(doSync) {
     <div class="month-header">${month}</div>
     ${ls.map(l => {
       const vis = l.visibility || 'private';
+      const hasAudio = l.audio_paths && l.audio_paths.length > 0;
       return `
       <div class="lesson-list-item">
         <div class="lesson-list-info">
           <div class="lesson-list-name">${escHtml(l.name)}</div>
-          <div class="lesson-list-date">${l.date || ''}</div>
+          <div class="lesson-list-date">${l.date || ''}${hasAudio ? ' · 🎵 ' + l.audio_paths.length + '件' : ''}</div>
         </div>
         <div class="lesson-list-actions">
           <select class="vis-select" data-vis="${vis}" data-id="${l.id}" data-type="lesson"
@@ -3325,15 +3339,96 @@ async function renderLessonList(doSync) {
             <option value="premium" ${vis==='premium' ?'selected':''}>⭐ プレミアム</option>
             <option value="private" ${vis==='private' ?'selected':''}>🚫 非公開</option>
           </select>
-          ${(l.audio_paths && l.audio_paths.length) ? `<span title="Supabase Storageに音声あり（${l.audio_paths.length}件）" style="font-size:14px;cursor:default">🎵</span>` : (l.url ? `<button class="btn-small" onclick="window.open('${escHtml(l.url)}','_blank')">確認</button>` : '')}
+          <button class="btn-small" onclick="previewLesson('${l.id}')">👁 プレビュー</button>
           <button class="btn-small" onclick="editLesson('${l.id}')">編集</button>
+          <button class="btn-small" style="color:var(--red);border-color:var(--red)" onclick="deleteLessonEntry('${l.id}')">削除</button>
         </div>
       </div>`;
     }).join('')}
   `).join('');
 }
 
-function editLesson(id) {
+// ── レッスンプレビュー ────────────────────────────
+function previewLesson(id) {
+  const db = getDB();
+  const lesson = db.lessons.find(l => l.id === id);
+  if (!lesson) return;
+
+  const modal = document.getElementById('lesson-preview-modal');
+  const title = document.getElementById('lesson-preview-title');
+  const body  = document.getElementById('lesson-preview-body');
+
+  title.textContent = lesson.name;
+
+  const ad = lesson.audioData || [];
+  const hasAudio = lesson.audio_paths && lesson.audio_paths.length > 0;
+
+  // 音声ファイル一覧
+  const audioPathsHtml = hasAudio ? `
+    <div style="margin-bottom:20px">
+      <div style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">🎵 Storage音声ファイル（${lesson.audio_paths.length}件）</div>
+      ${lesson.audio_paths.map(p => `
+        <div class="file-item" style="margin-bottom:6px">
+          <span class="file-name" style="font-size:12px">${escHtml(p.split('/').pop())}</span>
+        </div>`).join('')}
+    </div>` : (lesson.url ? `
+    <div style="margin-bottom:16px">
+      <a href="${escHtml(lesson.url)}" target="_blank" style="color:var(--accent2);font-size:13px">🔗 ${escHtml(lesson.url)}</a>
+    </div>` : '');
+
+  // テキストコンテンツ
+  const contentHtml = ad.length ? ad.map((block, ai) => {
+    const sentences = block.sentences || [];
+    return `
+      <div style="margin-bottom:20px">
+        <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">Audio ${ai+1}</div>
+        ${sentences.map((s, si) => `
+          <div style="background:var(--surface2);border-radius:10px;padding:12px 14px;margin-bottom:8px">
+            <div style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:6px">センテンス ${si+1}</div>
+            <div style="font-size:15px;line-height:1.9;color:var(--text);margin-bottom:6px">${escHtml(cleanText(s.text))}</div>
+            ${s.jpMeaning ? `<div style="font-size:12px;color:var(--muted);border-left:2px solid var(--accent);padding-left:8px">${escHtml(s.jpMeaning)}</div>` : ''}
+          </div>`).join('')}
+      </div>`;
+  }).join('') : '<div style="color:var(--muted);font-size:13px">テキストデータがありません</div>';
+
+  body.innerHTML = `
+    <div style="margin-bottom:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span class="badge badge-muted">${lesson.date || ''}</span>
+      <span class="badge ${lesson.visibility==='public'?'badge-green':lesson.visibility==='members'?'':'badge-muted'}" style="${lesson.visibility==='members'?'background:rgba(61,107,140,0.1);color:var(--accent2)':lesson.visibility==='premium'?'background:rgba(200,98,42,0.1);color:var(--accent)':''}">
+        ${{public:'🌐 無料公開',members:'🔒 メンバー限定',premium:'⭐ プレミアム',private:'🚫 非公開'}[lesson.visibility]||lesson.visibility}
+      </span>
+    </div>
+    ${audioPathsHtml}
+    <div style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">📝 テキストコンテンツ</div>
+    ${contentHtml}
+  `;
+
+  modal.classList.add('active');
+}
+
+function closeLessonPreview() {
+  document.getElementById('lesson-preview-modal').classList.remove('active');
+}
+
+// ── レッスン削除 ──────────────────────────────────
+async function deleteLessonEntry(id) {
+  const db = getDB();
+  const lesson = db.lessons.find(l => l.id === id);
+  if (!lesson) return;
+  if (!confirm(`「${lesson.name}」を削除しますか？\n\n※ Supabase StorageのMP3ファイルは手動で削除してください。`)) return;
+
+  db.lessons = db.lessons.filter(l => l.id !== id);
+  saveDB(db);
+
+  try {
+    await sbDelete('lessons', { id });
+    toast('削除しました');
+  } catch(e) {
+    toast('ローカル削除済み（クラウド同期エラー）');
+    console.warn(e);
+  }
+  renderLessonList();
+}
   const db = getDB();
   const lesson = db.lessons.find(l => l.id === id);
   if (!lesson) return;
@@ -5444,6 +5539,9 @@ document.getElementById('dict-modal').addEventListener('click', e => {
 });
 document.getElementById('fc-modal').addEventListener('click', e => {
   if (e.target === document.getElementById('fc-modal')) closeFCModal();
+});
+document.getElementById('lesson-preview-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('lesson-preview-modal')) closeLessonPreview();
 });
 
 // Strip [] and () annotation markers, leaving only the plain text
