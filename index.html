@@ -32,6 +32,14 @@
   --red: #c0392b;
   --shadow: 0 2px 12px rgba(0,0,0,0.08);
   --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+  /* ── Dark preview / lesson page ── */
+  --preview-bg: #0f0f13;
+  --preview-surface: #1a1a22;
+  --preview-border: #2e2e3e;
+  --preview-muted: #7a7a92;
+  --preview-text: #e8e8f0;
+  --highlight-phrase: #f4a843;
+  --highlight-unit: #f4e843;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -43,6 +51,13 @@ body {
   min-height: 100vh;
   font-size: 14px;
   line-height: 1.7;
+}
+
+/* ── STICKY UTILITY ── */
+.sticky-top {
+  position: sticky;
+  top: 0;
+  z-index: 50;
 }
 
 /* ── SCREENS ── */
@@ -79,15 +94,7 @@ body {
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   display: none;
 }
-/* その他ページのヘッダーは引き続き sticky */
-#screen-lessons .page-header,
-#screen-dict .page-header,
-#screen-flashcards .page-header,
-#screen-lesson-vocab .page-header {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-}
+/* その他ページのヘッダーは .sticky-top クラスで管理 */
 .page-header h1 {
   font-family: 'DM Serif Display', serif;
   font-size: 17px;
@@ -458,7 +465,7 @@ textarea.input-field { resize: vertical; min-height: 70px; }
    CREATE PAGE 3 – PREVIEW (same as lesson page ③)
 ───────────────────────────────────────────────── */
 .preview-frame {
-  background: #0f0f13;
+  background: var(--preview-bg);
   border-radius: 14px;
   padding: 20px 16px;
   margin-bottom: 16px;
@@ -469,14 +476,14 @@ textarea.input-field { resize: vertical; min-height: 70px; }
 }
 .prev-audio-label {
   font-family: 'DM Mono', monospace;
-  font-size: 11px; color: #7a7a92;
+  font-size: 11px; color: var(--preview-muted);
   margin-bottom: 10px; margin-top: 4px;
   padding-bottom: 6px;
-  border-bottom: 1px solid #2e2e3e;
+  border-bottom: 1px solid var(--preview-border);
 }
 .prev-sentence-block {
-  background: #1a1a22;
-  border: 1px solid #2e2e3e;
+  background: var(--preview-surface);
+  border: 1px solid var(--preview-border);
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 12px;
@@ -488,7 +495,7 @@ textarea.input-field { resize: vertical; min-height: 70px; }
 }
 .prev-sentence-text {
   font-size: 17px; line-height: 2.0;
-  color: #e8e8f0;
+  color: var(--preview-text);
 }
 /* tooltip inside preview — fixed positioning for accuracy */
 .prev-tooltip {
@@ -509,7 +516,7 @@ textarea.input-field { resize: vertical; min-height: 70px; }
 .prev-reveal-btn {
   display: flex; align-items: center; gap: 6px;
   background: none;
-  border: 1px dashed #3a3a4e;
+  border: 1px dashed var(--preview-border);
   border-radius: 8px;
   padding: 6px 12px;
   color: #7a7a92;
@@ -521,23 +528,23 @@ textarea.input-field { resize: vertical; min-height: 70px; }
   width: 100%;
   text-align: left;
 }
-.prev-reveal-btn:hover { border-color: #f4a843; color: #f4a843; }
+.prev-reveal-btn:hover { border-color: var(--highlight-phrase); color: var(--highlight-phrase); }
 .prev-reveal-text {
   display: none;
   margin-top: 8px;
   padding: 10px 12px;
-  background: #22222e;
+  background: var(--preview-surface);
   border-radius: 8px;
   font-size: 13px;
-  color: #e8e8f0;
-  border-left: 2px solid #f4a843;
+  color: var(--preview-text);
+  border-left: 2px solid var(--highlight-phrase);
   font-style: italic;
   line-height: 1.7;
 }
 /* clickable spans in preview */
 .pw {
   cursor: pointer;
-  color: #e8e8f0;
+  color: var(--preview-text);
   border-radius: 3px;
   padding: 1px 3px;
   transition: background .15s, color .15s;
@@ -561,13 +568,13 @@ textarea.input-field { resize: vertical; min-height: 70px; }
   padding: 1px 2px;
 }
 .pw.phrase.active {
-  background: #f4a843;
+  background: var(--highlight-phrase);
   color: #000;
   text-decoration: none;
   border-radius: 4px;
 }
 .pw.unit:not(.inner-unit).active {
-  background: #f4e843;
+  background: var(--highlight-unit);
   color: #000;
   text-decoration: none;
   border-radius: 4px;
@@ -582,7 +589,7 @@ textarea.input-field { resize: vertical; min-height: 70px; }
   color: #000;
 }
 .pw.phrase.active .pw.inner-unit.active {
-  background: #f4e843;
+  background: var(--highlight-unit);
   color: #000;
   text-decoration: none;
 }
@@ -611,7 +618,7 @@ textarea.input-field { resize: vertical; min-height: 70px; }
 .checklist-title { font-weight: 500; font-size: 14px; margin-bottom: 4px; }
 .checklist-desc { font-size: 12px; color: var(--muted); line-height: 1.6; }
 .code-block {
-  background: #1a1a22; color: #e8e8f0;
+  background: var(--preview-surface); color: var(--preview-text);
   border-radius: 8px; padding: 12px 14px;
   font-family: 'DM Mono', monospace; font-size: 11px;
   margin-top: 8px;
@@ -1320,12 +1327,140 @@ textarea.input-field { resize: vertical; min-height: 70px; }
   margin-bottom: 4px; padding-left: 2px;
 }
 
-/* レッスン登録単語・フレーズ一覧（四つ目の新画面） */
-#screen-lesson-vocab .page-header,
-#screen-dict .page-header,
-#screen-flashcards .page-header {
-  position: sticky; top: 0; z-index: 50;
+/* ── JS生成HTML用ユーティリティ ── */
+.wip-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.btn-small.danger { color: var(--red); border-color: var(--red); }
+.btn-small.danger:hover { background: var(--red); color: #fff; }
+.time-accent { color: var(--accent); font-weight: 500; }
+.audio-header-row { display: flex; align-items: center; justify-content: space-between; }
+.audio-header-btns { display: flex; gap: 6px; align-items: center; }
+.list-empty { text-align: center; color: var(--muted); padding: 40px; }
+.upload-info { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+.upload-warning {
+  margin-top: 8px; padding: 8px 12px;
+  background: rgba(192,57,43,0.08);
+  border: 1px solid var(--red);
+  border-radius: 8px;
+  font-size: 11px; color: var(--red);
 }
+.file-status { font-size: 14px; margin-right: 4px; }
+.file-size { font-size: 11px; color: var(--muted); }
+.fc-item-inner { flex: 1; }
+.fc-badges-row { display: flex; gap: 5px; align-items: center; margin-bottom: 5px; flex-wrap: wrap; }
+.fc-memo { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.word-count-label { margin-left: 4px; color: var(--muted); font-size: 10px; }
+.update-info-box {
+  background: rgba(61,107,140,0.08);
+  border: 1px solid var(--accent2);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  font-size: 12px; color: var(--accent2);
+}
+.upload-progress-wrap {
+  background: var(--surface2);
+  border-radius: 6px;
+  height: 8px;
+  overflow: hidden;
+}
+.upload-progress-bar {
+  background: var(--accent);
+  height: 100%;
+  width: 0%;
+  transition: width .3s;
+  border-radius: 6px;
+}
+.btn-publish { background: var(--green); }
+.example-row-inner { display: flex; gap: 6px; margin-bottom: 6px; }
+.example-block {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 8px;
+}
+.gender-label {
+  font-size: 10px; padding: 2px 7px; border-radius: 10px;
+  background: rgba(0,0,0,0.06);
+  font-family: 'DM Mono', monospace;
+}
+.conj-fixed-cell {
+  background: var(--surface2);
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--accent2);
+  white-space: nowrap;
+}
+.conj-hint {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.conj-hint-label {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.conj-mode-bar {
+  display: flex; align-items: center; gap: 6px;
+  margin-bottom: 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px 8px;
+}
+.conj-mode-label { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.conj-mode-hint { font-size: 10px; color: var(--muted); margin-left: 4px; }
+.section-title-mono {
+  font-size: 12px; color: var(--accent);
+  font-family: 'DM Mono', monospace;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.fc-type-section { margin-bottom: 8px; }
+.noun-gender-btn {
+  flex: 1; padding: 9px; border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 13px; color: var(--muted);
+  cursor: pointer; transition: all .18s;
+}
+.noun-gender-btn span { font-size: 10px; font-family: 'DM Mono', monospace; opacity: .7; }
+.noun-gender-row { display: flex; gap: 8px; }
+.noun-gender-hint { font-size: 11px; color: var(--muted); margin-bottom: 7px; }
+.adj-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.adj-grid-label {
+  font-size: 11px; color: var(--accent2);
+  font-family: 'DM Mono', monospace;
+  margin-bottom: 4px;
+}
+.def-art-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.def-art-label {
+  font-size: 11px; color: var(--accent2);
+  font-family: 'DM Mono', monospace;
+  margin-bottom: 4px;
+}
+.def-art-section-label {
+  font-size: 11px; color: var(--muted);
+  font-family: 'DM Mono', monospace;
+  text-transform: uppercase; letter-spacing: .05em;
+  margin-bottom: 8px;
+}
+.conj-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.conj-infinitive-label { font-size: 12px; color: var(--muted); }
+.conj-infinitive-val { font-family: 'DM Mono', monospace; color: var(--accent2); }
+.preview-empty { color: var(--preview-muted); font-size: 13px; padding: 10px; }
+.modal-btn-primary { flex: 1; }
+.modal-btn-cancel { width: auto; padding: 12px 16px; }
+.flex-shrink-0 { flex-shrink: 0; }
+.ta-auto-height { resize: none; overflow: hidden; }
+
+
+/* sticky-top は共通ユーティリティクラスで管理 */
 .vocab-tab-bar {
   display: flex; gap: 0;
   border-bottom: 2px solid var(--border);
@@ -1480,7 +1615,7 @@ textarea.input-field { resize: vertical; min-height: 70px; }
      LESSON LIST
 ═══════════════════════════════════════════════ -->
 <div class="screen" id="screen-lessons">
-  <div class="page-header">
+  <div class="page-header sticky-top">
     <h1>作成済みレッスン</h1>
     <span class="badge badge-accent" id="lessons-count-badge">0件</span>
     <button class="back-btn" onclick="showScreen('screen-top')">トップへ →</button>
@@ -1499,7 +1634,7 @@ textarea.input-field { resize: vertical; min-height: 70px; }
      FLASHCARD MANAGER（三つ目）
 ═══════════════════════════════════════════════ -->
 <div class="screen" id="screen-flashcards">
-  <div class="page-header">
+  <div class="page-header sticky-top">
     <h1>フラッシュカード管理</h1>
     <span class="badge badge-accent" id="flashcards-count-badge">0件</span>
     <button class="back-btn" onclick="showScreen('screen-top')">トップへ →</button>
@@ -1556,7 +1691,7 @@ textarea.input-field { resize: vertical; min-height: 70px; }
      DICT（辞書登録一覧）（二つ目）
 ═══════════════════════════════════════════════ -->
 <div class="screen" id="screen-dict">
-  <div class="page-header">
+  <div class="page-header sticky-top">
     <h1>辞書登録一覧</h1>
     <span class="badge badge-green" id="dict-count-badge">0件</span>
     <button class="back-btn" onclick="showScreen('screen-top')">トップへ →</button>
@@ -1578,7 +1713,7 @@ textarea.input-field { resize: vertical; min-height: 70px; }
      LESSON VOCAB（レッスン登録の単語＋フレーズ）（四つ目）
 ═══════════════════════════════════════════════ -->
 <div class="screen" id="screen-lesson-vocab">
-  <div class="page-header">
+  <div class="page-header sticky-top">
     <h1>レッスン登録の単語・フレーズ</h1>
     <button class="back-btn" onclick="showScreen('screen-top')">トップへ →</button>
   </div>
@@ -1661,8 +1796,8 @@ textarea.input-field { resize: vertical; min-height: 70px; }
       <!-- FCカード種別（フレーズ品詞のときのみ表示） -->
       <div id="dict-fc-type-section" style="display:none">
         <hr class="divider">
-        <div style="font-size:12px;color:var(--accent);font-family:'DM Mono',monospace;margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em">📇 フラッシュカード登録設定</div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.7">保存時に自動でフラッシュカードにも追加されます。<br>カードの種別を選択してください。</div>
+        <div class="section-title-mono" style="margin-bottom:10px">📇 フラッシュカード登録設定</div>
+        <div class="conj-hint">保存時に自動でフラッシュカードにも追加されます。<br>カードの種別を選択してください。</div>
         <div class="type-toggle" style="margin-bottom:0">
           <button class="type-btn active" id="dict-fc-type-phrase" onclick="setDictFCType('phrase')">💬 フレーズカード</button>
           <button class="type-btn" id="dict-fc-type-word" onclick="setDictFCType('word')">📖 単語カード</button>
@@ -1672,12 +1807,12 @@ textarea.input-field { resize: vertical; min-height: 70px; }
       <!-- 名詞格変化（名詞のみ） -->
       <div id="noun-section" style="display:none">
         <hr class="divider">
-        <div style="font-size:12px;color:var(--accent);font-family:'DM Mono',monospace;margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em">冠詞つき形式 Formas con artículo</div>
+        <div class="section-title-mono" style="margin-bottom:12px">冠詞つき形式 Formas con artículo</div>
 
         <!-- 性別セレクター -->
-        <div style="margin-bottom:14px">
-          <div style="font-size:11px;color:var(--muted);margin-bottom:7px">性別を選ぶと自動で入力されます（編集可）</div>
-          <div style="display:flex;gap:8px">
+        <div style="margin-bottom:14px" class="noun-gender-section">
+          <div class="noun-gender-hint">性別を選ぶと自動で入力されます（編集可）</div>
+          <div class="noun-gender-row">
             <button class="noun-gender-btn" id="gender-btn-m" onclick="selectNounGender('m')"
               style="flex:1;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);font-family:'Noto Sans JP',sans-serif;font-size:13px;color:var(--muted);cursor:pointer;transition:all .18s">
               男性名詞<br><span style="font-size:10px;font-family:'DM Mono',monospace;opacity:.7">Masculino · el / los</span>
@@ -1690,8 +1825,8 @@ textarea.input-field { resize: vertical; min-height: 70px; }
         </div>
 
         <!-- 定冠詞 -->
-        <div style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">定冠詞 Artículo definido</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+        <div class="def-art-section-label">定冠詞 Artículo definido</div>
+        <div class="def-art-grid">
           <div>
             <div style="font-size:11px;color:var(--accent2);font-family:'DM Mono',monospace;margin-bottom:4px">単数 Singular</div>
             <input class="input-field mono" id="noun-sg-def" placeholder="例: la tabla"
@@ -1709,10 +1844,10 @@ textarea.input-field { resize: vertical; min-height: 70px; }
       <!-- 形容詞変化（形容詞のみ） -->
       <div id="adj-section" style="display:none">
         <hr class="divider">
-        <div style="font-size:12px;color:var(--accent);font-family:'DM Mono',monospace;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">性数変化 Formas del adjetivo</div>
-        <div style="font-size:11px;color:var(--muted);margin-bottom:10px">上のスペイン語欄（男性単数形）から自動推定できます（編集可）</div>
+        <div class="section-title-mono" style="margin-bottom:8px">性数変化 Formas del adjetivo</div>
+        <div class="noun-gender-hint">上のスペイン語欄（男性単数形）から自動推定できます（編集可）</div>
         <button class="btn-small accent" onclick="guessAdjForms(true)" style="margin-bottom:12px">✨ 自動推定する</button>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div class="adj-grid">
           <div>
             <div style="font-size:11px;color:var(--accent2);font-family:'DM Mono',monospace;margin-bottom:4px">男性単数 Masc. Sg.</div>
             <input class="input-field mono" id="adj-msg" placeholder="例: precioso" onblur="autoSaveDictEntry(false)">
@@ -1735,23 +1870,23 @@ textarea.input-field { resize: vertical; min-height: 70px; }
       <!-- 活用表（動詞のみ） -->
       <div id="conj-section" style="display:none">
         <hr class="divider">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <div style="font-size:12px;color:var(--accent);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.05em">活用表 Conjugación</div>
-          <div style="font-size:12px;color:var(--muted)">原形：<span id="conj-infinitive-display" style="font-family:'DM Mono',monospace;color:var(--accent2)">—</span></div>
+        <div class="conj-section-header">
+          <div class="section-title-mono">活用表 Conjugación</div>
+          <div class="conj-infinitive-label">原形：<span id="conj-infinitive-display" class="conj-infinitive-val">—</span></div>
         </div>
         <!-- 活用モード切替 -->
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:6px 8px">
-          <span style="font-size:11px;color:var(--muted);white-space:nowrap">活用モード：</span>
+        <div class="conj-mode-bar">
+          <span class="conj-mode-label">活用モード：</span>
           <button id="conj-mode-btn-normal" class="conj-mode-btn conj-mode-active" onclick="setConjMode('normal')">🔤 通常</button>
           <button id="conj-mode-btn-custom" class="conj-mode-btn" onclick="setConjMode('custom')">⚡ カスタム</button>
-          <span id="conj-mode-hint" style="font-size:10px;color:var(--muted);margin-left:4px">haber・llover・不規則動詞など</span>
+          <span id="conj-mode-hint" class="conj-mode-hint">haber・llover・不規則動詞など</span>
         </div>
         <div id="conj-tenses"><!-- JS --></div>
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn-primary" style="flex:1" onclick="saveDictEntry()">保存する</button>
-      <button class="btn-secondary" style="width:auto;padding:12px 16px" onclick="closeDictModal()">キャンセル</button>
+      <button class="btn-primary modal-btn-primary" onclick="saveDictEntry()">保存する</button>
+      <button class="btn-secondary modal-btn-cancel" onclick="closeDictModal()">キャンセル</button>
     </div>
   </div>
 </div>
@@ -1765,7 +1900,7 @@ textarea.input-field { resize: vertical; min-height: 70px; }
     </div>
     <div class="modal-body">
       <!-- 種別切替 -->
-      <div class="input-group" style="margin-bottom:8px">
+      <div class="input-group fc-type-section">
         <label class="input-label">種別</label>
         <div class="type-toggle">
           <button class="type-btn active" id="fc-type-phrase" onclick="setFCType('phrase')">💬 フレーズ</button>
@@ -1778,7 +1913,7 @@ textarea.input-field { resize: vertical; min-height: 70px; }
           カテゴリ
           <button class="btn-small" onclick="toggleCatManager()" style="font-size:10px">＋ カテゴリ管理</button>
         </label>
-        <div id="fc-cat-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+        <div id="fc-cat-chips" class="cat-chips-wrap" style="margin-bottom:8px"></div>
         <!-- カテゴリ管理パネル -->
         <div class="cat-manager" id="fc-cat-manager" style="display:none">
           <div class="cat-manager-title">カテゴリ管理</div>
@@ -1803,8 +1938,8 @@ textarea.input-field { resize: vertical; min-height: 70px; }
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn-primary" style="flex:1" onclick="saveFCEntry()">保存する</button>
-      <button class="btn-secondary" style="width:auto;padding:12px 16px" onclick="closeFCModal()">キャンセル</button>
+      <button class="btn-primary modal-btn-primary" onclick="saveFCEntry()">保存する</button>
+      <button class="btn-secondary modal-btn-cancel" onclick="closeFCModal()">キャンセル</button>
     </div>
   </div>
 </div>
@@ -1815,7 +1950,11 @@ textarea.input-field { resize: vertical; min-height: 70px; }
      JAVASCRIPT
 ═══════════════════════════════════════════════ -->
 <script>
-// ── SUPABASE CONFIG ──────────────────────────────
+// ═══════════════════════════════════════════════
+// ⚠️  SUPABASE CONFIG
+//     キーはここだけで管理。GitHubなどへの公開時は
+//     必ず環境変数 or サーバーサイドに移動すること。
+// ═══════════════════════════════════════════════
 const SB_URL = 'https://vnzkjkyvagqnfrqsoijw.supabase.co';
 const SB_KEY = 'sb_publishable_pCakxmFfDkTMJFjkcOdobw_5Tnt5Vmg';
 
@@ -1871,8 +2010,6 @@ function saveDB(db) {
   }
   localStorage.setItem(DB_KEY, JSON.stringify(db));
 }
-function getDB() { return loadDB(); }
-
 // ── SYNC: pull Supabase → localDB ────────────────
 async function syncFromSupabase() {
   setSyncBadge(true);
@@ -1885,7 +2022,7 @@ async function syncFromSupabase() {
       sbSelect('wip', 'order=date.desc'),
       sbSelect('fc_categories', 'order=created.asc').catch(()=>[]),
     ]);
-    const db = getDB();
+    const db = loadDB();
     db.lessons = lessons.map(l => ({
       id: l.id, name: l.name, url: l.url || '', date: l.date,
       audioData: l.audio_data || [],
@@ -1937,7 +2074,7 @@ async function syncFromSupabase() {
   } catch(e) {
     console.warn('Supabase sync failed, using local cache:', e);
     setSyncBadge(false, false);
-    return getDB();
+    return loadDB();
   }
 }
 
@@ -2046,7 +2183,7 @@ async function deleteFC(id) {
 }
 // 活用形照合：単語が辞書に登録済みかチェック（見出し語 or 活用形リスト）
 function findDictEntry(word) {
-  const db = getDB();
+  const db = loadDB();
   const dict = db.dict || {};
   const w = (word || '').toLowerCase().trim();
   if (!w) return null;
@@ -2071,7 +2208,7 @@ function findDictEntryBroad(word) {
   const direct = findDictEntry(w);
   if (direct) return direct;
 
-  const db = getDB();
+  const db = loadDB();
   const dict = db.dict || {};
 
   // 冠詞を除去してみる
@@ -2144,7 +2281,7 @@ function copyText(text) {
 // ═══════════════════════════════════════════════
 async function renderTop(doSync) {
   if (doSync) await syncFromSupabase();
-  const db = getDB();
+  const db = loadDB();
 
   const lessonCount = (db.lessons || []).length;
   const wordCount   = Object.keys(db.words   || {}).length;
@@ -2166,7 +2303,7 @@ async function renderTop(doSync) {
       const dateStr = dateParts[0] || '';
       const timeStr = dateParts[1] || '';
       const dateDisplay = timeStr
-        ? `${dateStr} <span style="color:var(--accent);font-weight:500">${timeStr}</span>`
+        ? `${dateStr} <span class="time-accent">${timeStr}</span>`
         : dateStr;
       return `
         <div class="wip-card">
@@ -2174,9 +2311,9 @@ async function renderTop(doSync) {
             <div class="wip-name">${escHtml(w.name || '無題')}</div>
             <div class="wip-date">${dateDisplay}</div>
           </div>
-          <div style="display:flex;gap:6px;flex-shrink:0">
+          <div class="wip-actions">
             <button class="btn-small" onclick="editWip('${w.id}')">編集を続ける</button>
-            <button class="btn-small" style="color:var(--red,#e05c5c);border-color:var(--red,#e05c5c)"
+            <button class="btn-small danger"
               onclick="deleteWip('${w.id}')">削除</button>
           </div>
         </div>`;
@@ -2206,7 +2343,7 @@ function startNewLesson() {
 }
 
 function editWip(id) {
-  const db = getDB();
+  const db = loadDB();
   const wip = db.wip.find(w => w.id === id);
   if (!wip) return;
   currentWipId = id;
@@ -2220,7 +2357,7 @@ function editWip(id) {
 
 function deleteWip(id) {
   if (!confirm('このレッスンの作成を削除しますか？\n（入力したデータは消えます）')) return;
-  const db = getDB();
+  const db = loadDB();
   db.wip = db.wip.filter(w => w.id !== id);
   saveDB(db);
   sbDelete('wip', { id }).catch(e => console.warn('wip delete error:', e));
@@ -2229,7 +2366,7 @@ function deleteWip(id) {
 }
 
 function saveWip(extra) {
-  const db = getDB();
+  const db = loadDB();
   const name = document.getElementById('lesson-name').value.trim();
   const audioCount = audioData.length;
   let idx = db.wip.findIndex(w => w.id === currentWipId);
@@ -2300,7 +2437,7 @@ function goCreateStep2() {
 
 // ── STEP 2 ───────────────────────────────────────
 function buildAudioInputs(name, n) {
-  const db = getDB();
+  const db = loadDB();
   const container = document.getElementById('audio-inputs-container');
   container.innerHTML = '';
   for (let i = 0; i < n; i++) {
@@ -2309,7 +2446,7 @@ function buildAudioInputs(name, n) {
 }
 
 function appendAudioBlock(i, db) {
-  db = db || getDB();
+  db = db || loadDB();
   const ad = audioData[i] || { rawText: '', sentences: [] };
   const container = document.getElementById('audio-inputs-container');
   const sec = document.createElement('div');
@@ -2317,13 +2454,13 @@ function appendAudioBlock(i, db) {
   sec.id = 'audio-block-' + i;
   const totalCount = audioData.length;
   sec.innerHTML = `
-    <div class="audio-section-header" style="display:flex;align-items:center;justify-content:space-between;">
+    <div class="audio-section-header audio-header-row">
       <span>Audio ${i+1}</span>
-      <div style="display:flex;gap:6px;align-items:center;">
+      <div class="audio-header-btns">
         ${i > 0 ? `<button class="btn-small" title="上へ移動" onclick="moveAudioBlock(${i}, -1)">↑</button>` : ''}
         ${i < totalCount - 1 ? `<button class="btn-small" title="下へ移動" onclick="moveAudioBlock(${i}, 1)">↓</button>` : ''}
         <button class="btn-small" onclick="toggleAudioBlock(${i})" id="audio-toggle-btn-${i}">▲ 閉じる</button>
-        ${i > 0 ? `<button class="btn-small" style="color:var(--red);border-color:var(--red)" onclick="removeAudioBlock(${i})">削除</button>` : ''}
+        ${i > 0 ? `<button class="btn-small danger" onclick="removeAudioBlock(${i})">削除</button>` : ''}
       </div>
     </div>
     <div class="audio-section-body" id="audio-body-${i}">
@@ -2378,7 +2515,7 @@ function onRawInput(audioIdx) {
   const raw = document.getElementById('raw-' + audioIdx).value;
   audioData[audioIdx] = audioData[audioIdx] || {};
   audioData[audioIdx].rawText = raw;
-  const db = getDB();
+  const db = loadDB();
   buildSentencesFor(audioIdx, raw, db);
   saveWip();
 }
@@ -2456,14 +2593,14 @@ function buildSentencesFor(audioIdx, raw, db) {
         <div class="sentence-display">${buildCleanAnnotated(s.text)}</div>
         <div class="input-group" style="margin-bottom:6px">
           <label class="input-label">日本語の意味（自分の言葉で）</label>
-          <textarea class="input-field" rows="2" style="resize:none;overflow:hidden;"
+          <textarea class="input-field" rows="2" class="ta-auto-height"
             placeholder="この文の意味を入力"
             oninput="saveMeaning(${audioIdx},${si},'jp',0,this.value);this.style.height='auto';this.style.height=this.scrollHeight+'px'"
             >${escHtml(s.jpMeaning || '')}</textarea>
         </div>
         ${phraseRows ? `<div class="meaning-section-label">FRASE（フレーズ）</div>${phraseRows}` : ''}
         <div class="meaning-section-label word-section-header" onclick="toggleWordSection('${wordSectionId}','${wordToggleId}')">
-          WORD（単語）<span style="margin-left:4px;color:var(--muted);font-size:10px">${wordCount}語</span>
+          WORD（単語）<span class="word-count-label">${wordCount}語</span>
           <button class="word-toggle-btn" id="${wordToggleId}">▲ しまう</button>
         </div>
         <div id="${wordSectionId}" class="word-section-body">${wordRows}</div>
@@ -2481,7 +2618,7 @@ function saveMeaning(audioIdx, sentIdx, type, termIdx, value) {
     s.phrases_meanings[termIdx] = value;
     const term = s.phrases[termIdx];
     if (term) {
-      const db = getDB();
+      const db = loadDB();
       db.phrases[term] = value;
       saveDB(db);
       pushVocab('phrase', term, value).catch(()=>{});
@@ -2491,7 +2628,7 @@ function saveMeaning(audioIdx, sentIdx, type, termIdx, value) {
     s.words_meanings[termIdx] = value;
     const term = s.words[termIdx];
     if (term) {
-      const db = getDB();
+      const db = loadDB();
       db.words[term] = value;
       saveDB(db);
       pushVocab('word', term, value).catch(()=>{});
@@ -2506,7 +2643,7 @@ function saveMeaningAllWord(audioIdx, sentIdx, term, value) {
   if (!s) return;
   s.allWordMeanings = s.allWordMeanings || {};
   s.allWordMeanings[term] = value;
-  const db = getDB();
+  const db = loadDB();
   db.words[term] = value;
   saveDB(db);
   pushVocab('word', term, value).catch(()=>{});
@@ -2713,14 +2850,14 @@ function buildPreview() {
     html += `</div>`;
   });
 
-  el.innerHTML = html || '<div style="color:#7a7a92;font-size:13px;padding:10px">テキストが登録されていません</div>';
+  el.innerHTML = html || '<div class="preview-empty">テキストが登録されていません</div>';
 }
 
 // Build interactive spans — handles [], (), and all allWordMeanings entries
 function buildPreviewSpans(s, blockId) {
   const text = s.text;
   const allMeanings = s.allWordMeanings || {};
-  const db = getDB();
+  const db = loadDB();
 
   // Helper: get meaning for a term (checks allWordMeanings, words_meanings, global db)
   function getMeaning(term) {
@@ -3007,7 +3144,7 @@ async function storageSignedUrl(path, expiresIn = 3600) {
 // ── 公開パネルを構築 ──────────────────────────────
 function buildPublishPanel() {
   const name = document.getElementById('lesson-name').value.trim() || 'lesson';
-  const db = getDB();
+  const db = loadDB();
   const existingLesson = db.lessons.find(l => l.id === currentWipId);
   const audioCount = audioData.length;
 
@@ -3024,7 +3161,7 @@ function buildPublishPanel() {
   const isUpdate = existingPaths.length > 0;
 
   document.getElementById('checklist-container').innerHTML = `
-    <div class="card" style="margin-bottom:16px">
+    <div class="card">
       <div class="card-label">📋 必要なMP3ファイル（${requiredFiles.length}件）</div>
       ${requiredFiles.map(f => `
         <div class="file-item">
@@ -3032,7 +3169,7 @@ function buildPublishPanel() {
         </div>`).join('')}
     </div>
 
-    <div class="card" style="margin-bottom:16px">
+    <div class="card">
       <div class="card-label">🎵 MP3ファイルをアップロード</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.7">
         収録したMP3ファイルを選択してください。<br>
@@ -3047,7 +3184,7 @@ function buildPublishPanel() {
       <div id="mp3-selected-list" style="margin-top:12px"></div>
     </div>
 
-    <div class="card" style="margin-bottom:20px">
+    <div class="card">
       <div class="card-label">⚙️ レッスン設定</div>
       <div class="input-group" style="margin-bottom:0">
         <label class="input-label">公開設定（ユーザーページでの表示範囲）</label>
@@ -3062,19 +3199,19 @@ function buildPublishPanel() {
     </div>
 
     ${isUpdate ? `
-    <div style="background:rgba(61,107,140,0.08);border:1px solid var(--accent2);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--accent2)">
+    <div class="update-info-box">
       📦 このレッスンはすでにSupabaseに保存されています。<br>
       MP3を再選択しなかった場合は既存の音声ファイルが保持されます。
     </div>` : ''}
 
-    <div id="upload-progress" style="display:none;margin-bottom:16px">
+    <div id="upload-progress" style="display:none">
       <div style="font-size:12px;color:var(--muted);margin-bottom:8px" id="upload-status">アップロード中...</div>
-      <div style="background:var(--surface2);border-radius:6px;height:8px;overflow:hidden">
-        <div id="upload-bar" style="background:var(--accent);height:100%;width:0%;transition:width .3s;border-radius:6px"></div>
+      <div class="upload-progress-wrap">
+        <div id="upload-bar" class="upload-progress-bar"></div>
       </div>
     </div>
 
-    <button class="btn-primary" style="background:var(--green)" id="publish-btn" onclick="publishLesson()">
+    <button class="btn-primary btn-publish" id="publish-btn" onclick="publishLesson()">
       🚀 公開する（Supabaseに保存）
     </button>
   `;
@@ -3102,7 +3239,7 @@ function onMp3FilesSelected(input) {
 
   const selectedNames = window._selectedMp3Files.map(f => f.name);
   container.innerHTML = `
-    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">${window._selectedMp3Files.length}件選択済み</div>
+    <div class="upload-info">${window._selectedMp3Files.length}件選択済み</div>
     ${window._selectedMp3Files.map(f => {
       const isExpected = requiredFiles.includes(f.name);
       return `<div class="file-item">
@@ -3112,7 +3249,7 @@ function onMp3FilesSelected(input) {
       </div>`;
     }).join('')}
     ${requiredFiles.filter(r => !selectedNames.includes(r)).length ? `
-      <div style="margin-top:8px;padding:8px 12px;background:rgba(192,57,43,0.08);border:1px solid var(--red);border-radius:8px;font-size:11px;color:var(--red)">
+      <div class="upload-warning">
         ⚠️ 未選択のファイル：${requiredFiles.filter(r => !selectedNames.includes(r)).map(escHtml).join('、')}
       </div>` : ''}
   `;
@@ -3132,7 +3269,7 @@ async function publishLesson() {
   btn.disabled = true;
   btn.textContent = '処理中...';
 
-  const db = getDB();
+  const db = loadDB();
   const existingIdx = db.lessons.findIndex(l => l.id === currentWipId);
   const originalDate = existingIdx >= 0 ? db.lessons[existingIdx].date : todayStr();
   const existingPaths = existingIdx >= 0 ? (db.lessons[existingIdx].audio_paths || []) : [];
@@ -3275,7 +3412,7 @@ function copyCode(n) {
 async function saveUrl() {
   const url = document.getElementById('lesson-url')?.value.trim();
   if (!url) return;
-  const db  = getDB();
+  const db  = loadDB();
   const wipIdx = db.wip.findIndex(w => w.id === currentWipId);
   if (wipIdx >= 0) { db.wip[wipIdx].url = url; }
   const lessonIdx = db.lessons.findIndex(l => l.id === currentWipId);
@@ -3300,7 +3437,7 @@ let lessonPage = 0;
 
 async function renderLessonList(doSync) {
   if (doSync) await syncFromSupabase();
-  const db = getDB();
+  const db = loadDB();
   const q = (document.getElementById('lesson-search')?.value || '').toLowerCase();
   let lessons = db.lessons.filter(l => !q || l.name.toLowerCase().includes(q));
   lessons = [...lessons].sort((a,b) => b.date?.localeCompare(a.date));
@@ -3350,7 +3487,7 @@ async function renderLessonList(doSync) {
 }
 
 async function previewLesson(id) {
-  const db = getDB();
+  const db = loadDB();
   const lesson = db.lessons.find(l => l.id === id);
   if (!lesson) { toast('レッスンが見つかりません'); return; }
 
@@ -3407,7 +3544,7 @@ async function previewLesson(id) {
 }
 
 async function deleteLesson(id) {
-  const db = getDB();
+  const db = loadDB();
   const lesson = db.lessons.find(l => l.id === id);
   if (!lesson) return;
 
@@ -3432,7 +3569,7 @@ async function deleteLesson(id) {
 }
 
 function editLesson(id) {
-  const db = getDB();
+  const db = loadDB();
   const lesson = db.lessons.find(l => l.id === id);
   if (!lesson) return;
   currentWipId = id;
@@ -3460,7 +3597,7 @@ let phrasePage = 0;
 
 async function renderPhraseList(doSync) {
   if (doSync) await syncFromSupabase();
-  const db = getDB();
+  const db = loadDB();
   const q = (document.getElementById('phrase-search')?.value || '').toLowerCase();
   const entries = Object.entries(db.phrases || {}).filter(([term, meaning]) =>
     !q || term.toLowerCase().includes(q) || (meaning||'').toLowerCase().includes(q)
@@ -3505,7 +3642,7 @@ let wordPage = 0;
 
 async function renderWordList(doSync) {
   if (doSync) await syncFromSupabase();
-  const db = getDB();
+  const db = loadDB();
   const q = (document.getElementById('word-search')?.value || '').toLowerCase();
   const entries = Object.entries(db.words || {}).filter(([term, meaning]) =>
     !q || term.toLowerCase().includes(q) || (meaning||'').toLowerCase().includes(q)
@@ -3520,7 +3657,7 @@ async function renderWordList(doSync) {
 
   const container = document.getElementById('word-list-container');
   if (!entries.length) {
-    container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px">単語がありません</div>';
+    container.innerHTML = '<div class="list-empty">単語がありません</div>';
     document.getElementById('word-pagination').innerHTML = '';
     return;
   }
@@ -3548,13 +3685,13 @@ async function renderWordList(doSync) {
 }
 
 function updateVocab(type, term, value) {
-  const db = getDB();
+  const db = loadDB();
   if (type === 'phrase') db.phrases[term] = value;
   else db.words[term] = value;
   saveDB(db);
 }
 async function updateVocabSave(type, term) {
-  const db = getDB();
+  const db = loadDB();
   const meaning = type === 'phrase' ? (db.phrases[term] || '') : (db.words[term] || '');
   try {
     await pushVocab(type, term, meaning);
@@ -3579,7 +3716,7 @@ function renderPagination(id, current, total, onPage) {
 async function updateVisibility(type, id, selectEl) {
   const vis = selectEl.value;
   selectEl.setAttribute('data-vis', vis);
-  const db = getDB();
+  const db = loadDB();
 
   if (type === 'lesson') {
     const idx = db.lessons.findIndex(l => l.id === id);
@@ -3714,13 +3851,13 @@ function renderDictExamples() {
     return;
   }
   wrap.innerHTML = _dictExamples.map((ex, i) => `
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px">
-      <div style="display:flex;gap:6px;margin-bottom:6px">
+    <div class="example-block">
+      <div class="example-row-inner">
         <input class="input-field" style="font-size:13px;padding:8px 10px" placeholder="例文（スペイン語）"
           value="${escHtml(ex.es)}"
           oninput="updateDictExample(${i},'es',this.value)"
           onblur="autoSaveDictEntry(false)">
-        <button class="btn-small" style="color:var(--red);border-color:var(--red);flex-shrink:0" onclick="removeDictExample(${i})">✕</button>
+        <button class="btn-small danger flex-shrink-0" onclick="removeDictExample(${i})">✕</button>
       </div>
       <input class="input-field" style="font-size:13px;padding:8px 10px" placeholder="例文の日本語訳（任意）"
         value="${escHtml(ex.jp)}"
@@ -3747,7 +3884,7 @@ function updateDictExample(i, field, value) {
 function openDictModal(term, sourceType) {
   _dictModalTerm = term || null;
   _dictModalSourceType = sourceType || 'word';
-  const db = getDB();
+  const db = loadDB();
   // 活用形経由でもヒットするように findDictEntryBroad を使用
   const existing = term ? findDictEntryBroad(term) : null;
   // 見出し語（既存エントリがあればそちらのesを使う）
@@ -4431,7 +4568,7 @@ function onDictEsInput(val) {
 }
 async function autoGenConjFCs(verbEs, verbJp, conjugation) {
   if (!conjugation || !Object.keys(conjugation).length) return 0;
-  const db = getDB();
+  const db = loadDB();
   if (!db.flashcards) db.flashcards = [];
   if (!db.fc_categories) db.fc_categories = [];
 
@@ -4505,7 +4642,7 @@ async function saveDictEntry() {
   }
   entry.forms = extractForms(entry.conjugation || {}, entry.customConj || {});
 
-  const db = getDB();
+  const db = loadDB();
   if (!db.dict) db.dict = {};
   // 既存エントリがあれば visibility を引き継ぐ
   if (db.dict[es]?.visibility) entry.visibility = db.dict[es].visibility;
@@ -4709,7 +4846,7 @@ async function autoSaveDictEntry(silent) {
   entry.forms = typeof extractForms === 'function' ? extractForms(conj, _customConj) : [];
 
   // localDBに保存
-  const db = getDB();
+  const db = loadDB();
   if (!db.dict) db.dict = {};
   // 既存 visibility を引き継ぐ
   const existingVis = db.dict[es]?.visibility || 'members';
@@ -4895,7 +5032,7 @@ function setFCDType(type, noRender) {
   if (!noRender) renderFCDCatChips();
 }
 function renderFCDCatChips() {
-  const db = getDB();
+  const db = loadDB();
   const cats = db.fc_categories || [];
   const wrap = document.getElementById('fcd-cat-chips');
   if (!wrap) return;
@@ -4922,7 +5059,7 @@ function renderFCDExamples() {
           value="${escHtml(ex.es)}"
           oninput="updateFCDExample(${i},'es',this.value)"
           onblur="saveFCDDraft()">
-        <button class="btn-small" style="color:var(--red);border-color:var(--red);flex-shrink:0" onclick="removeFCDExample(${i})">✕</button>
+        <button class="btn-small danger flex-shrink-0" onclick="removeFCDExample(${i})">✕</button>
       </div>
       <input class="input-field" style="font-size:13px;padding:8px 10px" placeholder="例文の意味（日本語）"
         value="${escHtml(ex.jp)}"
@@ -4947,7 +5084,7 @@ function updateFCDExample(i, field, value) {
 }
 
 async function saveFCFromDict() {
-  const db = getDB();
+  const db = loadDB();
   if (!db.flashcards) db.flashcards = [];
   // 例文：空のものは除外
   const examples = _fcDictType === 'phrase'
@@ -4974,7 +5111,7 @@ let dictPage = 0;
 
 async function renderDictList(doSync) {
   if (doSync) await syncFromSupabase();
-  const db = getDB();
+  const db = loadDB();
   const q = (document.getElementById('dict-search')?.value || '').toLowerCase();
   const entries = Object.entries(db.dict || {}).filter(([term, d]) =>
     !q || term.toLowerCase().includes(q) || (d.jp||'').toLowerCase().includes(q) || (d.pos||'').toLowerCase().includes(q)
@@ -4987,7 +5124,7 @@ async function renderDictList(doSync) {
 
   const container = document.getElementById('dict-list-container');
   if (!entries.length) {
-    container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px">辞書登録がありません</div>';
+    container.innerHTML = '<div class="list-empty">辞書登録がありません</div>';
     document.getElementById('dict-pagination').innerHTML = '';
     return;
   }
@@ -5052,7 +5189,7 @@ async function renderDictList(doSync) {
 
 async function deleteDictEntry(term) {
   if (!confirm(`「${term}」の辞書登録を削除しますか？`)) return;
-  const db = getDB();
+  const db = loadDB();
   delete db.dict[term];
   saveDB(db);
   try { await deleteDict(term); } catch(e) { console.warn('dict delete sync error:', e); }
@@ -5081,7 +5218,7 @@ let _fcDictJp = '';
 
 function openFCModal(id, prefillJp, prefillEs) {
   _fcEditId = id || null;
-  const db = getDB();
+  const db = loadDB();
   const existing = id ? (db.flashcards||[]).find(f => f.id === id) : null;
   document.getElementById('fc-modal-title').textContent = existing ? 'フラッシュカード編集' : 'フラッシュカード追加';
   document.getElementById('fc-jp').value = prefillJp || existing?.jp || '';
@@ -5128,7 +5265,7 @@ function toggleCatManager() {
 }
 
 function renderFCCatChips() {
-  const db = getDB();
+  const db = loadDB();
   const cats = db.fc_categories || [];
   const wrap = document.getElementById('fc-cat-chips');
   if (!wrap) return;
@@ -5146,7 +5283,7 @@ function selectFCCat(id, el) {
 }
 
 function renderCatManagerChips() {
-  const db = getDB();
+  const db = loadDB();
   const cats = db.fc_categories || [];
   const wrap = document.getElementById('fc-cat-edit-chips');
   if (!wrap) return;
@@ -5161,7 +5298,7 @@ async function addCategory() {
   const input = document.getElementById('fc-cat-new-input');
   const name = input.value.trim();
   if (!name) return;
-  const db = getDB();
+  const db = loadDB();
   if (!db.fc_categories) db.fc_categories = [];
   // 重複チェック
   if (db.fc_categories.some(c => c.name === name)) { toast('同名のカテゴリがすでにあります'); return; }
@@ -5177,7 +5314,7 @@ async function addCategory() {
 
 async function deleteCategory(id) {
   if (!confirm('このカテゴリを削除しますか？\n（カードには影響しません）')) return;
-  const db = getDB();
+  const db = loadDB();
   db.fc_categories = (db.fc_categories || []).filter(c => c.id !== id);
   // このカテゴリを持つカードをnoneに
   (db.flashcards || []).forEach(f => { if (f.category === id) f.category = ''; });
@@ -5200,7 +5337,7 @@ async function saveFCEntry() {
   const memo = document.getElementById('fc-memo').value.trim();
   if (!jp || !es) { toast('日本語とスペイン語を入力してください'); return; }
 
-  const db = getDB();
+  const db = loadDB();
   if (!db.flashcards) db.flashcards = [];
   let fc;
   if (_fcEditId) {
@@ -5240,7 +5377,7 @@ function setFCCatFilter(catId, el) {
 }
 
 function renderFCCatFilterBar() {
-  const db = getDB();
+  const db = loadDB();
   const cats = db.fc_categories || [];
   const bar = document.getElementById('fc-cat-filter-bar');
   if (!bar) return;
@@ -5254,7 +5391,7 @@ function renderFCCatFilterBar() {
 
 async function renderFlashcardList(doSync) {
   if (doSync) await syncFromSupabase();
-  const db = getDB();
+  const db = loadDB();
   renderFCCatFilterBar();
   const q = (document.getElementById('fc-search')?.value || '').toLowerCase();
   let entries = (db.flashcards || []).filter(f =>
@@ -5279,7 +5416,7 @@ async function renderFlashcardList(doSync) {
 
   const container = document.getElementById('fc-list-container');
   if (!entries.length) {
-    container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px">フラッシュカードがありません</div>';
+    container.innerHTML = '<div class="list-empty">フラッシュカードがありません</div>';
     document.getElementById('fc-pagination').innerHTML = '';
     document.getElementById('fc-preview-area').style.display = 'none';
     return;
@@ -5292,20 +5429,20 @@ async function renderFlashcardList(doSync) {
 
   container.innerHTML = page.map((f, i) => {
     const vis = f.visibility || 'members';
-    const db2 = getDB();
+    const db2 = loadDB();
     const catName = (db2.fc_categories||[]).find(c => c.id === f.category)?.name || '';
     const typeLabel = (f.type||'phrase') === 'word' ? '📖 単語' : '💬 フレーズ';
     return `
     <div class="fc-item">
       <div class="fc-item-top">
-        <div style="flex:1">
-          <div style="display:flex;gap:5px;align-items:center;margin-bottom:5px;flex-wrap:wrap">
+        <div class="fc-item-inner">
+          <div class="fc-badges-row">
             <span class="badge badge-accent" style="font-size:10px;padding:1px 7px">${typeLabel}</span>
             ${catName ? `<span class="badge badge-muted" style="font-size:10px;padding:1px 7px">${escHtml(catName)}</span>` : ''}
           </div>
           <div class="fc-jp">${escHtml(f.jp)}</div>
           <div class="fc-es">${escHtml(f.es)}</div>
-          ${f.memo ? `<div style="font-size:11px;color:var(--muted);margin-top:4px">${escHtml(f.memo)}</div>` : ''}
+          ${f.memo ? `<div class="fc-memo">${escHtml(f.memo)}</div>` : ''}
         </div>
         <div class="fc-actions">
           <select class="vis-select" data-vis="${vis}"
@@ -5315,7 +5452,7 @@ async function renderFlashcardList(doSync) {
           </select>
           <button class="btn-small" onclick="previewFC(${entries.indexOf(f)})">プレビュー</button>
           <button class="btn-small" onclick="openFCModal('${f.id}')">編集</button>
-          <button class="btn-small" style="color:var(--red);border-color:var(--red)" onclick="deleteFCEntry('${f.id}')">削除</button>
+          <button class="btn-small danger" onclick="deleteFCEntry('${f.id}')">削除</button>
         </div>
       </div>
     </div>`;
@@ -5415,7 +5552,7 @@ function toggleFCDictPanel() {
   const esRaw = f.es || '';
   const entry = findDictEntryBroad(esRaw);
   if (!entry) {
-    panel.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:4px">辞書に登録がありません</div>';
+    panel.innerHTML = '<div class="list-empty" style="padding:4px">辞書に登録がありません</div>';
   } else {
     panel.innerHTML = buildDictPanelHTML(entry);
   }
@@ -5578,7 +5715,7 @@ function previewFC(idx) {
 
 async function deleteFCEntry(id) {
   if (!confirm('このフラッシュカードを削除しますか？')) return;
-  const db = getDB();
+  const db = loadDB();
   db.flashcards = (db.flashcards||[]).filter(f => f.id !== id);
   saveDB(db);
   try { await deleteFC(id); } catch(e) { console.warn('fc delete sync error:', e); }
@@ -5607,7 +5744,7 @@ function cleanText(text) {
 // CODE GENERATORS
 // ═══════════════════════════════════════════════
 function generateLessonHTML(name) {
-  const db = getDB();
+  const db = loadDB();
   const safeName = name.replace(/['"\\`]/g, '');
   const storageKey = 'lesson_' + safeName.replace(/\s+/g,'_');
 
@@ -6231,7 +6368,7 @@ function generateLessonJSON(name) {
 
 // Build span HTML for generated lesson page (inline, no external deps)
 function buildLessonSpans(sentence, blockId) {
-  const db = getDB();
+  const db = loadDB();
   const allM = sentence.allWordMeanings || {};
   function gm(term) {
     return allM[term] || db.words[term] || '';
