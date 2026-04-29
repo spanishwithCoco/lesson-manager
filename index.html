@@ -5726,7 +5726,9 @@ function buildDictPanelHTML(entry) {
           {key:'perfecto',label:'現在完了（Perfecto）'},{key:'gerundio',label:'進行形（Gerundio）'},
           {key:'futuro',label:'未来（Futuro）'},{key:'condicional',label:'過去未来（Condicional）'}
         ];
+        const hiddenTensesSetCustom = new Set(entry.hiddenTenses || []);
         TENSES_FOR_DISPLAY.forEach(t => {
+          if (hiddenTensesSetCustom.has(t.key)) return;
           const rows = customConj[t.key];
           if (!Array.isArray(rows) || !rows.some(r => r.form && r.form.trim())) return;
           html += `<div class="dp-custom-tense-label">${escHtml(t.label)}</div>
@@ -5747,7 +5749,9 @@ function buildDictPanelHTML(entry) {
           {key:'perfecto',label:'現在完了',sub:'Perfecto'},{key:'gerundio',label:'進行形',sub:'Gerundio'},
           {key:'futuro',label:'未来',sub:'Futuro'},{key:'condicional',label:'過去未来',sub:'Condicional'}
         ];
+        const hiddenTensesSet = new Set(entry.hiddenTenses || []);
         const activeTenses = TENSES_LIST.filter(t =>
+          !hiddenTensesSet.has(t.key) &&
           PRONOUNS_LIST.some(pr => { const k=t.key+'_'+pr.replace(/[^a-z]/gi,''); return conj[k]&&(conj[k].form||conj[k].example||conj[k].meaning); })
         );
         if (activeTenses.length > 0) {
