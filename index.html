@@ -920,6 +920,8 @@ textarea.input-field { resize: vertical; min-height: 70px; }
 }
 .pos-btn:hover { border-color: var(--accent); color: var(--accent); }
 .pos-btn.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
+.pos-btn-phrase { grid-column: 1 / -1; background: rgba(200,98,42,0.06); border-color: var(--accent); color: var(--accent); font-weight: 500; }
+.pos-btn-phrase.selected { background: var(--accent); color: #fff; }
 
 /* 活用表 */
 .conj-table-wrap { overflow-x: auto; margin-top: 8px; }
@@ -1620,6 +1622,7 @@ textarea.input-field { resize: vertical; min-height: 70px; }
       <div class="input-group">
         <label class="input-label">品詞</label>
         <div class="pos-grid" id="pos-grid">
+          <button class="pos-btn pos-btn-phrase" data-pos="フレーズ" onclick="selectPOS(this)">💬 フレーズ<br><span style="font-size:9px;opacity:.7">Frase</span></button>
           <button class="pos-btn" data-pos="名詞" onclick="selectPOS(this)">名詞<br><span style="font-size:9px;opacity:.7">Sustantivo</span></button>
           <button class="pos-btn" data-pos="動詞" onclick="selectPOS(this)">動詞<br><span style="font-size:9px;opacity:.7">Verbo</span></button>
           <button class="pos-btn" data-pos="形容詞" onclick="selectPOS(this)">形容詞<br><span style="font-size:9px;opacity:.7">Adjetivo</span></button>
@@ -1653,6 +1656,17 @@ textarea.input-field { resize: vertical; min-height: 70px; }
       <div class="input-group">
         <label class="input-label">豆知識 <span style="font-size:10px;color:var(--muted)">（任意）</span></label>
         <textarea class="input-field" id="dict-trivia" rows="2" placeholder="覚え方のヒントなど"></textarea>
+      </div>
+
+      <!-- FCカード種別（フレーズ品詞のときのみ表示） -->
+      <div id="dict-fc-type-section" style="display:none">
+        <hr class="divider">
+        <div style="font-size:12px;color:var(--accent);font-family:'DM Mono',monospace;margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em">📇 フラッシュカード登録設定</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.7">保存時に自動でフラッシュカードにも追加されます。<br>カードの種別を選択してください。</div>
+        <div class="type-toggle" style="margin-bottom:0">
+          <button class="type-btn active" id="dict-fc-type-phrase" onclick="setDictFCType('phrase')">💬 フレーズカード</button>
+          <button class="type-btn" id="dict-fc-type-word" onclick="setDictFCType('word')">📖 単語カード</button>
+        </div>
       </div>
 
       <!-- 名詞格変化（名詞のみ） -->
@@ -2401,7 +2415,7 @@ function buildSentencesFor(audioIdx, raw, db) {
             value="${escHtml(saved)}"
             oninput="saveMeaning(${audioIdx},${si},'phrase',${pi},this.value)">
           <button class="${phDictBtnClass}" onclick="openDictModal('${ph.replace(/'/g,"\\'")}','phrase')">
-            ${phDictBtnLabel}
+            ${isPhRegistered ? '確認・編集' : '💬 フレーズ辞書登録'}
           </button>
         </div>`;
     }).join('');
@@ -3681,6 +3695,15 @@ function guessParticipio(infinitive) {
 let _dictModalTerm = null; // 編集中の単語
 let _dictModalSourceType = 'word'; // 辞書登録元の種別
 let _dictExamples = []; // [{es:'', jp:''}]
+let _dictFCType = 'phrase'; // フレーズ品詞保存時のFCカード種別
+
+function setDictFCType(type, noUI) {
+  _dictFCType = type;
+  if (!noUI) {
+    document.getElementById('dict-fc-type-phrase')?.classList.toggle('active', type === 'phrase');
+    document.getElementById('dict-fc-type-word')?.classList.toggle('active', type === 'word');
+  }
+}
 
 // ── 辞書モーダル：例文追加・削除・レンダリング ──────
 function renderDictExamples() {
@@ -3748,10 +3771,17 @@ function openDictModal(term, sourceType) {
 
   // 品詞リセット
   document.querySelectorAll('.pos-btn').forEach(b => b.classList.remove('selected'));
-  if (existing?.pos) {
-    const btn = document.querySelector(`.pos-btn[data-pos="${existing.pos}"]`);
+  // sourceType が phrase かつ既存エントリがない場合はフレーズ品詞を自動選択
+  const autoPos = (!existing && sourceType === 'phrase') ? 'フレーズ' : (existing?.pos || '');
+  if (autoPos) {
+    const btn = document.querySelector(`.pos-btn[data-pos="${autoPos}"]`);
     if (btn) { btn.classList.add('selected'); }
   }
+  // FC種別セクションの表示切替
+  const fcTypeSection = document.getElementById('dict-fc-type-section');
+  if (fcTypeSection) fcTypeSection.style.display = (autoPos === 'フレーズ') ? 'block' : 'none';
+  // FC種別をデフォルト（phrase）にリセット
+  setDictFCType('phrase', true);
 
   // 活用表
   _hiddenTenses = new Set(existing?.hiddenTenses || []);
@@ -3836,6 +3866,9 @@ function closeDictModal() {
   _conjMode = 'normal';
   _customConj = {};
   _lastNormalConj = {};
+  _dictFCType = 'phrase';
+  const fcTypeSection = document.getElementById('dict-fc-type-section');
+  if (fcTypeSection) fcTypeSection.style.display = 'none';
   clearDictDraft();
 }
 
@@ -3864,6 +3897,9 @@ function selectPOS(btn) {
   }
   toggleNounSection(pos === '名詞');
   toggleAdjSection(pos === '形容詞');
+  // フレーズ品詞のみFC種別セクションを表示
+  const fcTypeSection = document.getElementById('dict-fc-type-section');
+  if (fcTypeSection) fcTypeSection.style.display = (pos === 'フレーズ') ? 'block' : 'none';
 }
 
 function toggleNounSection(show) {
@@ -4486,7 +4522,32 @@ async function saveDictEntry() {
   let wordFCAdded = 0;
   if (!db.flashcards) db.flashcards = [];
 
-  if (pos === '名詞') {
+  if (pos === 'フレーズ') {
+    // フレーズ：db.phrases にも保存
+    if (jp) {
+      db.phrases[es] = jp;
+      saveDB(db);
+      try { await pushVocab('phrase', es, jp); } catch(e) { console.warn('phrase vocab sync error:', e); }
+    }
+    // FCカード登録（選択した種別で）
+    if (es && jp) {
+      const dup = db.flashcards.find(f => f.es === es && (f.type === 'phrase' || f.type === 'word'));
+      if (!dup) {
+        const fc = {
+          id: 'fc_phrase_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+          type: _dictFCType,
+          category: '',
+          es, jp,
+          memo: '[フレーズ]',
+          created: todayStr()
+        };
+        db.flashcards.push(fc);
+        try { await pushFC(fc); } catch(e) {}
+        wordFCAdded = 1;
+      }
+    }
+    saveDB(db);
+  } else if (pos === '名詞') {
     // 名詞：定冠詞単数形のみフラッシュカードに登録（例: la tabla → 板）
     // 定冠詞単数が入力されていればそれを使い、なければ見出し語（裸の形）でカード作成
     const fcEsForm = nounForms.sgDef || es;
@@ -4583,7 +4644,10 @@ async function saveDictEntry() {
   }
 
   const parts = [];
-  if (wordFCAdded) parts.push(pos === '名詞' ? `名詞カード${wordFCAdded}枚` : pos === '形容詞' ? `形容詞カード${wordFCAdded}枚` : '単語カード1枚');
+  if (wordFCAdded) {
+    if (pos === 'フレーズ') parts.push(`${_dictFCType === 'phrase' ? 'フレーズ' : '単語'}カード1枚`);
+    else parts.push(pos === '名詞' ? `名詞カード${wordFCAdded}枚` : pos === '形容詞' ? `形容詞カード${wordFCAdded}枚` : '単語カード1枚');
+  }
   if (exFCAdded) parts.push(`例文カード${exFCAdded}枚`);
   if (conjFCCount) parts.push(`活用例文${conjFCCount}枚`);
   const fcMsg = parts.length ? `（FC: ${parts.join('・')}）` : '';
