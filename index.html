@@ -3335,21 +3335,53 @@ async function renderLessonList(doSync) {
   `).join('');
 }
 
-function previewLesson(id) {
+async function previewLesson(id) {
   const db = getDB();
   const lesson = db.lessons.find(l => l.id === id);
   if (!lesson) { toast('レッスンが見つかりません'); return; }
+
+  toast('プレビューを準備中...', 2000);
 
   // audioDataを一時的にセットして generateLessonHTML を呼び出す
   const savedAudioData = audioData;
   audioData = lesson.audioData || [];
 
   try {
-    const html = generateLessonHTML(lesson.name || 'プレビュー');
+    let html = generateLessonHTML(lesson.name || 'プレビュー');
+
+    // ── 音声パスをSupabase署名付きURLに差し替え ──
+    const audioPaths = lesson.audio_paths || [];
+    if (audioPaths.length > 0) {
+      // 署名付きURLを並列取得
+      const signedEntries = await Promise.all(audioPaths.map(async path => {
+        try {
+          const signedUrl = await storageSignedUrl(path, 3600);
+          return { path, signedUrl };
+        } catch(e) {
+          console.warn('signed URL error for', path, e);
+          return null;
+        }
+      }));
+
+      // HTML内の相対音声ファイル参照を署名付きURLに置換
+      // generateLessonHTML は "safeName ×1.mp3"（スペースあり・×あり）形式で参照
+      // Storage保存時は toSafeStorageName で スペース→_ / ×→x に変換済み
+      // → Storage上のファイル名から元のHTML内参照パターンを逆算して置換
+      for (const entry of signedEntries) {
+        if (!entry) continue;
+        const storageFname = entry.path.split('/').pop(); // 例: "Bluey_Ep1-1_x1.mp3"
+        // Storage名→HTML参照名に逆変換（_→スペース, x1→×1, x0.75→×0.75, x0.5→×0.5）
+        const htmlFname = storageFname
+          .replace(/_/g, ' ')          // _ → スペース
+          .replace(/\bx(\d)/g, '×$1'); // x1 → ×1, x0 → ×0
+        const escaped = htmlFname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        html = html.replace(new RegExp(escaped, 'g'), entry.signedUrl);
+      }
+    }
+
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const url  = URL.createObjectURL(blob);
     const win  = window.open(url, '_blank');
-    // BlobURLを解放
     if (win) win.addEventListener('unload', () => URL.revokeObjectURL(url), { once: true });
     else { URL.revokeObjectURL(url); toast('ポップアップがブロックされました。許可してください。', 3000); }
   } catch(e) {
@@ -5710,7 +5742,6 @@ const STORAGE_KEY = 'lesson_` + storageKey + `';
 let ldata = JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');
 function saveInput(k,v){ldata[k]=v;localStorage.setItem(STORAGE_KEY,JSON.stringify(ldata));}
 window.addEventListener('DOMContentLoaded',function(){
-  initAutoDraftListeners();
   document.querySelectorAll('textarea').forEach(function(t){
     var m=t.getAttribute('oninput');
     var k=m&&m.match(/saveInput\\('([^']+)'/);
