@@ -1532,6 +1532,72 @@ textarea.input-field { resize: vertical; min-height: 70px; }
 .ta-auto-height { resize: none; overflow: hidden; }
 
 
+/* ── アナウンス管理 ── */
+.ann-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+}
+.ann-item-header {
+  display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px;
+}
+.ann-item-title {
+  flex: 1; font-weight: 700; font-size: 15px; color: var(--text);
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ann-item-meta {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.ann-item-desc {
+  font-size: 13px; color: var(--muted); line-height: 1.7;
+  margin-bottom: 10px; word-break: break-word;
+}
+.ann-item-url {
+  font-family: 'DM Mono', monospace; font-size: 11px; color: var(--accent2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  display: block; margin-bottom: 10px;
+  text-decoration: none;
+}
+.ann-item-url:hover { text-decoration: underline; }
+.ann-item-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.ann-form-card {
+  background: var(--surface);
+  border: 2px dashed var(--border);
+  border-radius: 14px;
+  padding: 20px 18px;
+  margin-bottom: 20px;
+}
+.ann-form-card.editing {
+  border-color: var(--accent); border-style: solid;
+}
+.ann-form-title {
+  font-family: 'DM Mono', monospace; font-size: 11px;
+  color: var(--accent); text-transform: uppercase; letter-spacing: .06em;
+  margin-bottom: 16px;
+}
+.ann-vis-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px; margin-bottom: 6px;
+}
+.ann-vis-btn {
+  padding: 9px 8px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--surface2);
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 12px; color: var(--muted);
+  cursor: pointer; transition: all .18s; text-align: center;
+  line-height: 1.5;
+}
+.ann-vis-btn:hover { border-color: var(--accent); color: var(--accent); }
+.ann-vis-btn.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
+.ann-vis-btn.selected-green { background: var(--green); color: #fff; border-color: var(--green); }
+.ann-vis-btn.selected-blue { background: var(--accent2); color: #fff; border-color: var(--accent2); }
+.ann-vis-hint { font-size: 11px; color: var(--muted); margin-bottom: 16px; }
+.badge-premium { background: rgba(200,98,42,0.15); color: var(--accent); }
+
 /* sticky-top は共通ユーティリティクラスで管理 */
 .vocab-tab-bar {
   display: flex; gap: 0;
@@ -1641,6 +1707,13 @@ textarea.input-field { resize: vertical; min-height: 70px; }
           <div class="action-title">レッスンで登録された単語とフレーズを確認する</div>
         </span>
         <span class="action-count" id="stat-words">0件</span>
+      </button>
+      <button class="top-action-btn" onclick="showScreen('screen-announcements')">
+        <span class="action-icon">📢</span>
+        <span class="action-text">
+          <div class="action-title">アナウンスを管理する</div>
+        </span>
+        <span class="action-count" id="stat-announcements">0件</span>
       </button>
     </div>
   </div>
@@ -1840,6 +1913,60 @@ textarea.input-field { resize: vertical; min-height: 70px; }
       <div id="phrase-list-container"><!-- JS --></div>
       <div class="pagination" id="phrase-pagination"><!-- JS --></div>
     </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     ANNOUNCEMENTS（アナウンス管理）
+═══════════════════════════════════════════════ -->
+<div class="screen" id="screen-announcements">
+  <div class="page-header sticky-top">
+    <h1>アナウンス管理</h1>
+    <span class="badge badge-accent" id="ann-count-badge">0件</span>
+    <button class="back-btn" onclick="showScreen('screen-top')">トップへ →</button>
+  </div>
+  <div class="container">
+
+    <!-- 新規作成フォーム -->
+    <div class="ann-form-card" id="ann-form-card">
+      <div class="ann-form-title" id="ann-form-label">＋ 新規アナウンスを作成</div>
+      <input type="hidden" id="ann-edit-id" value="">
+
+      <div class="input-group">
+        <label class="input-label">タイトル <span style="color:var(--red)">*</span></label>
+        <input type="text" class="input-field" id="ann-title" placeholder="例：おすすめ動画 — Bluey スペイン語版">
+      </div>
+
+      <div class="input-group">
+        <label class="input-label">URL（YouTube・サイトなど）</label>
+        <input type="url" class="input-field mono" id="ann-url" placeholder="https://www.youtube.com/watch?v=...">
+      </div>
+
+      <div class="input-group">
+        <label class="input-label">説明・コメント</label>
+        <textarea class="input-field" id="ann-desc" rows="3" placeholder="どんな内容か、どう使うか、一言コメントなど"></textarea>
+      </div>
+
+      <div class="input-group">
+        <label class="input-label" style="margin-bottom:10px">公開対象ステータス <span style="color:var(--red)">*</span></label>
+        <div class="ann-vis-grid" id="ann-vis-grid">
+          <button class="ann-vis-btn" data-vis="public"  onclick="selectAnnVis('public')">🌐 無料公開<br><span style="font-size:10px;opacity:.7">全員に表示</span></button>
+          <button class="ann-vis-btn" data-vis="members" onclick="selectAnnVis('members')">🔒 メンバー限定<br><span style="font-size:10px;opacity:.7">メンバー以上</span></button>
+          <button class="ann-vis-btn" data-vis="premium" onclick="selectAnnVis('premium')">⭐ プレミアム<br><span style="font-size:10px;opacity:.7">プレミアム限定</span></button>
+          <button class="ann-vis-btn" data-vis="private" onclick="selectAnnVis('private')">🚫 非公開<br><span style="font-size:10px;opacity:.7">管理者のみ</span></button>
+        </div>
+        <div class="ann-vis-hint" id="ann-vis-hint">ステータスを選んでください</div>
+      </div>
+
+      <div style="display:flex;gap:8px">
+        <button class="btn-primary" onclick="saveAnnouncement()" style="flex:1">保存する</button>
+        <button class="btn-secondary" onclick="resetAnnForm()" style="flex:none;width:auto;padding:12px 16px">リセット</button>
+      </div>
+    </div>
+
+    <!-- 一覧 -->
+    <div class="wip-title" style="margin-bottom:12px">保存済みアナウンス</div>
+    <div id="ann-list-container"><!-- JS --></div>
   </div>
 </div>
 
@@ -2096,7 +2223,7 @@ function loadDB() {
   catch { return initDB(); }
 }
 function initDB() {
-  return { lessons: [], wip: [], phrases: {}, words: {}, dict: {}, flashcards: [], fc_categories: [] };
+  return { lessons: [], wip: [], phrases: {}, words: {}, dict: {}, flashcards: [], fc_categories: [], announcements: [] };
 }
 function saveDB(db) {
   // WIPは常に保存前に重複除去（同IDは最新dateのみ残す）
@@ -2114,13 +2241,14 @@ function saveDB(db) {
 async function syncFromSupabase() {
   setSyncBadge(true);
   try {
-    const [lessons, vocab, dictRows, fcRows, wipRows, catRows] = await Promise.all([
+    const [lessons, vocab, dictRows, fcRows, wipRows, catRows, annRows] = await Promise.all([
       sbSelect('lessons', 'order=date.desc'),
       sbSelect('vocab'),
       sbSelect('dict'),
       sbSelect('flashcards', 'order=created.desc'),
       sbSelect('wip', 'order=date.desc'),
       sbSelect('fc_categories', 'order=created.asc').catch(()=>[]),
+      sbSelect('announcements', 'order=created_at.desc').catch(()=>[]),
     ]);
     const db = loadDB();
     db.lessons = lessons.map(l => ({
@@ -2167,6 +2295,13 @@ async function syncFromSupabase() {
       step: r.step || 1, date: r.date || '',
       url: r.url || '',
       audioData: r.audio_data || []
+    }));
+    // announcements
+    db.announcements = annRows.map(r => ({
+      id: r.id, title: r.title, url: r.url || '',
+      description: r.description || '',
+      visibility: r.visibility || 'private',
+      created_at: r.created_at || ''
     }));
     saveDB(db);
     setSyncBadge(false, true);
@@ -2361,6 +2496,7 @@ function showScreen(id) {
   if (id === 'screen-dict')         renderDictList(true);
   if (id === 'screen-flashcards')   renderFlashcardList(true);
   if (id === 'screen-lesson-vocab') { renderWordList(true); renderPhraseList(); }
+  if (id === 'screen-announcements') renderAnnouncementList(true);
 }
 
 // ── TOAST ────────────────────────────────────────
@@ -2387,10 +2523,12 @@ async function renderTop(doSync) {
   const wordCount   = Object.keys(db.words   || {}).length;
   const dictCount   = Object.keys(db.dict    || {}).length;
   const fcCount     = (db.flashcards || []).length;
+  const annCount    = (db.announcements || []).length;
   document.getElementById('stat-lessons').textContent    = lessonCount + '件';
   document.getElementById('stat-words').textContent      = wordCount   + '件';
   document.getElementById('stat-dict').textContent       = dictCount   + '件';
   document.getElementById('stat-flashcards').textContent = fcCount     + '件';
+  document.getElementById('stat-announcements').textContent = annCount + '件';
 
   const wipEl = document.getElementById('wip-list');
   const wip = db.wip || []; // saveDB で重複除去済み
@@ -6562,6 +6700,172 @@ function escHtml(s) {
 function escRegex(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 }
+// ═══════════════════════════════════════════════
+// ANNOUNCEMENTS
+// ═══════════════════════════════════════════════
+
+let _annSelectedVis = '';
+
+const ANN_VIS_LABELS = {
+  public:  { label: '🌐 無料公開',   cls: 'badge-green',   btnCls: 'selected-green' },
+  members: { label: '🔒 メンバー限定', cls: 'badge-accent',  btnCls: 'selected-blue'  },
+  premium: { label: '⭐ プレミアム',  cls: 'badge-premium', btnCls: 'selected'       },
+  private: { label: '🚫 非公開',     cls: 'badge-muted',   btnCls: 'selected'       },
+};
+
+function selectAnnVis(vis) {
+  _annSelectedVis = vis;
+  document.querySelectorAll('#ann-vis-grid .ann-vis-btn').forEach(btn => {
+    btn.className = 'ann-vis-btn';
+    if (btn.dataset.vis === vis) {
+      const info = ANN_VIS_LABELS[vis] || {};
+      btn.classList.add(info.btnCls || 'selected');
+    }
+  });
+  const info = ANN_VIS_LABELS[vis] || {};
+  const hintEl = document.getElementById('ann-vis-hint');
+  if (hintEl) hintEl.textContent = '選択中：' + (info.label || vis);
+}
+
+function resetAnnForm() {
+  document.getElementById('ann-edit-id').value = '';
+  document.getElementById('ann-title').value   = '';
+  document.getElementById('ann-url').value     = '';
+  document.getElementById('ann-desc').value    = '';
+  _annSelectedVis = '';
+  document.querySelectorAll('#ann-vis-grid .ann-vis-btn').forEach(btn => btn.className = 'ann-vis-btn');
+  const hintEl = document.getElementById('ann-vis-hint');
+  if (hintEl) hintEl.textContent = 'ステータスを選んでください';
+  const card = document.getElementById('ann-form-card');
+  if (card) card.classList.remove('editing');
+  const labelEl = document.getElementById('ann-form-label');
+  if (labelEl) labelEl.textContent = '＋ 新規アナウンスを作成';
+}
+
+function editAnnouncementForm(id) {
+  const db = loadDB();
+  const ann = (db.announcements || []).find(a => a.id === id);
+  if (!ann) return;
+  document.getElementById('ann-edit-id').value = ann.id;
+  document.getElementById('ann-title').value   = ann.title || '';
+  document.getElementById('ann-url').value     = ann.url   || '';
+  document.getElementById('ann-desc').value    = ann.description || '';
+  selectAnnVis(ann.visibility || 'private');
+  const card = document.getElementById('ann-form-card');
+  if (card) card.classList.add('editing');
+  const labelEl = document.getElementById('ann-form-label');
+  if (labelEl) labelEl.textContent = '✏️ アナウンスを編集中';
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function saveAnnouncement() {
+  const title = document.getElementById('ann-title').value.trim();
+  const url   = document.getElementById('ann-url').value.trim();
+  const desc  = document.getElementById('ann-desc').value.trim();
+  const vis   = _annSelectedVis;
+  const editId = document.getElementById('ann-edit-id').value.trim();
+
+  if (!title) { toast('タイトルを入力してください'); return; }
+  if (!vis)   { toast('公開対象ステータスを選んでください'); return; }
+
+  const id = editId || ('ann_' + Date.now());
+  const created_at = editId
+    ? ((loadDB().announcements || []).find(a => a.id === editId)?.created_at || nowStr())
+    : nowStr();
+
+  const entry = { id, title, url, description: desc, visibility: vis, created_at };
+
+  // ローカル保存
+  const db = loadDB();
+  db.announcements = db.announcements || [];
+  const idx = db.announcements.findIndex(a => a.id === id);
+  if (idx >= 0) db.announcements[idx] = entry;
+  else db.announcements.unshift(entry);
+  saveDB(db);
+
+  // Supabase
+  try {
+    await sbUpsert('announcements', {
+      id: entry.id, title: entry.title, url: entry.url,
+      description: entry.description, visibility: entry.visibility,
+      created_at: entry.created_at
+    });
+    toast(editId ? '更新しました ✓' : 'アナウンスを保存しました ✓');
+  } catch(e) {
+    toast('ローカルに保存しました（Supabase未同期）', 3000);
+    console.warn('ann upsert error:', e);
+  }
+
+  resetAnnForm();
+  renderAnnouncementList(false);
+
+  // トップの件数も更新
+  const annCountEl = document.getElementById('stat-announcements');
+  if (annCountEl) annCountEl.textContent = (loadDB().announcements || []).length + '件';
+}
+
+async function deleteAnnouncement(id) {
+  const db = loadDB();
+  const ann = (db.announcements || []).find(a => a.id === id);
+  if (!ann) return;
+  if (!confirm(`「${ann.title}」を削除しますか？`)) return;
+
+  db.announcements = (db.announcements || []).filter(a => a.id !== id);
+  saveDB(db);
+
+  try {
+    await sbDelete('announcements', { id });
+    toast('削除しました');
+  } catch(e) {
+    toast('ローカルから削除しました（Supabase未同期）', 3000);
+    console.warn('ann delete error:', e);
+  }
+
+  resetAnnForm();
+  renderAnnouncementList(false);
+  const annCountEl = document.getElementById('stat-announcements');
+  if (annCountEl) annCountEl.textContent = (loadDB().announcements || []).length + '件';
+}
+
+async function renderAnnouncementList(doSync) {
+  if (doSync) await syncFromSupabase();
+  const db = loadDB();
+  const anns = db.announcements || [];
+
+  const badge = document.getElementById('ann-count-badge');
+  if (badge) badge.textContent = anns.length + '件';
+
+  const container = document.getElementById('ann-list-container');
+  if (!container) return;
+
+  if (!anns.length) {
+    container.innerHTML = '<div class="wip-empty card">アナウンスはまだありません</div>';
+    return;
+  }
+
+  container.innerHTML = anns.map(ann => {
+    const vis = ann.visibility || 'private';
+    const visInfo = ANN_VIS_LABELS[vis] || { label: vis, cls: 'badge-muted' };
+    return `
+    <div class="ann-item">
+      <div class="ann-item-header">
+        <div class="ann-item-title">${escHtml(ann.title)}</div>
+      </div>
+      <div class="ann-item-meta">
+        <span class="badge ${visInfo.cls}">${visInfo.label}</span>
+        <span style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace">${(ann.created_at||'').substring(0,10)}</span>
+      </div>
+      ${ann.url ? `<a class="ann-item-url" href="${escHtml(ann.url)}" target="_blank" rel="noopener">🔗 ${escHtml(ann.url)}</a>` : ''}
+      ${ann.description ? `<div class="ann-item-desc">${escHtml(ann.description)}</div>` : ''}
+      <div class="ann-item-actions">
+        <button class="btn-small accent" onclick="editAnnouncementForm('${ann.id}')">編集</button>
+        ${ann.url ? `<button class="btn-small" onclick="window.open('${escHtml(ann.url)}','_blank')">URLを開く</button>` : ''}
+        <button class="btn-small" style="color:var(--red);border-color:var(--red)" onclick="deleteAnnouncement('${ann.id}')">削除</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 function todayStr() {
   const d = new Date();
   return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
