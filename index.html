@@ -2032,10 +2032,9 @@ textarea.input-field { resize: vertical; min-height: 70px; }
       <div class="input-group">
         <label class="input-label" style="margin-bottom:10px">公開対象ステータス <span style="color:var(--red)">*</span></label>
         <div class="ann-vis-grid" id="ann-vis-grid">
-          <button class="ann-vis-btn" data-vis="public"  onclick="selectAnnVis('public')">🌐 無料公開<br><span style="font-size:10px;opacity:.7">全員に表示</span></button>
-          <button class="ann-vis-btn" data-vis="members" onclick="selectAnnVis('members')">🔒 メンバー限定<br><span style="font-size:10px;opacity:.7">メンバー以上</span></button>
-          <button class="ann-vis-btn" data-vis="premium" onclick="selectAnnVis('premium')">⭐ プレミアム<br><span style="font-size:10px;opacity:.7">プレミアム限定</span></button>
-          <button class="ann-vis-btn" data-vis="private" onclick="selectAnnVis('private')">🚫 非公開<br><span style="font-size:10px;opacity:.7">管理者のみ</span></button>
+          <button class="ann-vis-btn" data-vis="public"  onclick="selectAnnVis('public')">🌐 Core<br><span style="font-size:10px;opacity:.7">全員に表示</span></button>
+          <button class="ann-vis-btn" data-vis="members" onclick="selectAnnVis('members')">🔒 Core+<br><span style="font-size:10px;opacity:.7">有料会員のみ</span></button>
+          <button class="ann-vis-btn" data-vis="private" onclick="selectAnnVis('private')">🚫 Creator<br><span style="font-size:10px;opacity:.7">管理者のみ</span></button>
         </div>
         <div class="ann-vis-hint" id="ann-vis-hint">ステータスを選んでください</div>
       </div>
@@ -3512,10 +3511,9 @@ function buildPublishPanel() {
         <label class="input-label">公開設定（ユーザーページでの表示範囲）</label>
         <select class="vis-select" id="publish-visibility" style="width:100%;padding:10px 14px;font-size:13px"
           data-vis="${escHtml(existingLesson?.visibility || 'members')}">
-          <option value="public"  ${(existingLesson?.visibility||'members')==='public'  ?'selected':''}>🌐 無料公開（ログイン不要）</option>
-          <option value="members" ${(existingLesson?.visibility||'members')==='members' ?'selected':''}>🔒 メンバー限定（ログイン必須）</option>
-          <option value="premium" ${(existingLesson?.visibility||'members')==='premium' ?'selected':''}>⭐ プレミアム限定</option>
-          <option value="private" ${(existingLesson?.visibility||'members')==='private' ?'selected':''}>🚫 非公開（管理者のみ）</option>
+          <option value="public"  ${(existingLesson?.visibility||'members')==='public'  ?'selected':''}>🌐 Core（全員）</option>
+          <option value="members" ${(existingLesson?.visibility||'members')==='members' ?'selected':''}>🔒 Core+（有料会員のみ）</option>
+          <option value="private" ${(existingLesson?.visibility||'members')==='private' ?'selected':''}>🚫 Creator（管理者のみ）</option>
         </select>
       </div>
     </div>
@@ -3793,10 +3791,9 @@ async function renderLessonList(doSync) {
         <div class="lesson-list-actions">
           <select class="vis-select" data-vis="${vis}" data-id="${l.id}" data-type="lesson"
             onchange="updateVisibility('lesson','${l.id}',this)">
-            <option value="public"  ${vis==='public'  ?'selected':''}>🌐 無料公開</option>
-            <option value="members" ${vis==='members' ?'selected':''}>🔒 メンバー限定</option>
-            <option value="premium" ${vis==='premium' ?'selected':''}>⭐ プレミアム</option>
-            <option value="private" ${vis==='private' ?'selected':''}>🚫 非公開</option>
+            <option value="public"  ${vis==='public'  ?'selected':''}>🌐 Core</option>
+            <option value="members" ${vis==='members' ?'selected':''}>🔒 Core+</option>
+            <option value="private" ${vis==='private' ?'selected':''}>🚫 Creator</option>
           </select>
           ${(l.audio_paths && l.audio_paths.length) ? `<span title="Supabase Storageに音声あり（${l.audio_paths.length}件）" style="font-size:14px;cursor:default">🎵</span>` : (l.url ? `<button class="btn-small" onclick="window.open('${escHtml(l.url)}','_blank')">確認</button>` : '')}
           <button class="btn-small" onclick="previewLesson('${l.id}')">プレビュー</button>
@@ -6855,10 +6852,9 @@ document.addEventListener('click', e => {
 });
 
 const ANN_VIS_LABELS = {
-  public:  { label: '🌐 無料公開',   cls: 'badge-green',   btnCls: 'selected-green' },
-  members: { label: '🔒 メンバー限定', cls: 'badge-accent',  btnCls: 'selected-blue'  },
-  premium: { label: '⭐ プレミアム',  cls: 'badge-premium', btnCls: 'selected'       },
-  private: { label: '🚫 非公開',     cls: 'badge-muted',   btnCls: 'selected'       },
+  public:  { label: '🌐 Core',    cls: 'badge-green',  btnCls: 'selected-green' },
+  members: { label: '🔒 Core+',   cls: 'badge-accent', btnCls: 'selected-blue'  },
+  private: { label: '🚫 Creator', cls: 'badge-muted',  btnCls: 'selected'       },
 };
 
 function selectAnnVis(vis) {
