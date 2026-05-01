@@ -1,4 +1,4 @@
-export type Visibility = 'public' | 'members' | 'premium' | 'private'
+export type Visibility = 'public' | 'members' | 'private'
 
 export interface Lesson {
   id: string
