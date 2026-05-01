@@ -1,0 +1,35 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Serif+Display&family=DM+Mono:wght@400;500&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg:           #f5f2ed;
+  --surface:      #ffffff;
+  --surface2:     #f0ece4;
+  --border:       #e0d8cc;
+  --text:         #1a1612;
+  --muted:        #8a8070;
+  --accent:       #c8622a;
+  --accent2:      #3d6b8c;
+  --green:        #3a7d55;
+  --red:          #c0392b;
+  --shadow:       0 2px 12px rgba(0,0,0,0.08);
+  --shadow-lg:    0 8px 32px rgba(0,0,0,0.12);
+}
+
+body {
+  font-family: 'Noto Sans JP', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.font-serif-display {
+  font-family: 'DM Serif Display', serif;
+}
+
+.font-mono-dm {
+  font-family: 'DM Mono', monospace;
+}
