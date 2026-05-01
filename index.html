@@ -1598,6 +1598,70 @@ textarea.input-field { resize: vertical; min-height: 70px; }
 .ann-vis-hint { font-size: 11px; color: var(--muted); margin-bottom: 16px; }
 .badge-premium { background: rgba(200,98,42,0.15); color: var(--accent); }
 
+/* レッスン紐づけ（1件選択） */
+.ann-lesson-picker { position: relative; }
+.ann-lesson-search-wrap { position: relative; margin-bottom: 6px; }
+.ann-lesson-clear-btn {
+  position: absolute; top: 50%; right: 10px; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer;
+  color: var(--muted); font-size: 14px; padding: 4px; line-height: 1;
+  transition: color .15s;
+}
+.ann-lesson-clear-btn:hover { color: var(--red); }
+.ann-lesson-dropdown {
+  display: none;
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg, 0 8px 24px rgba(0,0,0,.15));
+  z-index: 200;
+  max-height: 220px; overflow-y: auto;
+}
+.ann-lesson-dropdown.open { display: block; }
+.ann-dd-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 14px; cursor: pointer;
+  font-size: 13px; color: var(--text);
+  transition: background .12s;
+}
+.ann-dd-item:hover { background: var(--surface2); }
+.ann-dd-item.is-selected { background: rgba(61,107,140,0.08); }
+.ann-dd-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ann-dd-date { font-size: 10px; color: var(--muted); font-family: 'DM Mono', monospace; flex-shrink: 0; }
+.ann-dd-check { font-size: 12px; color: var(--accent2); margin-left: auto; flex-shrink: 0; }
+.ann-dd-empty { padding: 12px 14px; font-size: 13px; color: var(--muted); text-align: center; }
+.ann-lesson-selected-info {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--accent2);
+  padding: 0 2px;
+  min-height: 0;
+}
+.ann-lesson-selected-info:empty { display: none; }
+.ann-lesson-selected-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 20px;
+  background: rgba(61,107,140,0.1);
+  border: 1px solid var(--accent2);
+  font-size: 12px; color: var(--accent2);
+  max-width: 100%; overflow: hidden;
+}
+.ann-lesson-badge-name {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* アナウンスカード内 */
+.ann-linked-lesson {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 20px;
+  background: rgba(61,107,140,0.08);
+  border: 1px solid var(--accent2);
+  font-size: 11px; color: var(--accent2);
+  font-family: 'DM Mono', monospace;
+  text-decoration: none; cursor: default;
+  max-width: 100%; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+
 /* sticky-top は共通ユーティリティクラスで管理 */
 .vocab-tab-bar {
   display: flex; gap: 0;
@@ -1945,6 +2009,24 @@ textarea.input-field { resize: vertical; min-height: 70px; }
       <div class="input-group">
         <label class="input-label">説明・コメント</label>
         <textarea class="input-field" id="ann-desc" rows="3" placeholder="どんな内容か、どう使うか、一言コメントなど"></textarea>
+      </div>
+
+      <div class="input-group">
+        <label class="input-label">紐づけるレッスン（任意）</label>
+        <div class="ann-lesson-picker">
+          <div class="ann-lesson-search-wrap">
+            <span style="position:absolute;top:50%;left:12px;transform:translateY(-50%);color:var(--muted);font-size:13px;pointer-events:none">🔍</span>
+            <input type="text" class="input-field" id="ann-lesson-search"
+              placeholder="レッスン名で絞り込み..."
+              style="padding-left:36px;padding-right:32px"
+              oninput="renderAnnLessonDropdown(true)"
+              onfocus="renderAnnLessonDropdown(false)"
+              autocomplete="off">
+            <button id="ann-lesson-clear" class="ann-lesson-clear-btn" onclick="clearAnnLesson()" title="選択を外す" style="display:none">✕</button>
+            <div class="ann-lesson-dropdown" id="ann-lesson-dropdown"></div>
+          </div>
+          <div id="ann-lesson-selected-info" class="ann-lesson-selected-info"></div>
+        </div>
       </div>
 
       <div class="input-group">
@@ -2301,6 +2383,8 @@ async function syncFromSupabase() {
       id: r.id, title: r.title, url: r.url || '',
       description: r.description || '',
       visibility: r.visibility || 'private',
+      lesson_id:   r.lesson_id   || null,
+      lesson_name: r.lesson_name || null,
       created_at: r.created_at || ''
     }));
     saveDB(db);
@@ -6705,6 +6789,70 @@ function escRegex(s) {
 // ═══════════════════════════════════════════════
 
 let _annSelectedVis = '';
+let _annLinkedLesson = null; // { id, name } | null
+
+// ── レッスン紐づけ（1件選択）────────────────────
+function renderAnnLessonDropdown(filtering) {
+  const q = (document.getElementById('ann-lesson-search')?.value || '').toLowerCase();
+  const db = loadDB();
+  const lessons = (db.lessons || [])
+    .filter(l => !q || l.name.toLowerCase().includes(q))
+    .slice(0, 40);
+
+  const dd = document.getElementById('ann-lesson-dropdown');
+  if (!dd) return;
+
+  if (!lessons.length) {
+    dd.innerHTML = '<div class="ann-dd-empty">レッスンが見つかりません</div>';
+  } else {
+    dd.innerHTML = lessons.map(l => {
+      const sel = _annLinkedLesson?.id === l.id;
+      return `<div class="ann-dd-item${sel ? ' is-selected' : ''}" onclick="selectAnnLesson('${l.id}','${escHtml(l.name).replace(/'/g,"\\'")}')">
+        <span class="ann-dd-name">${escHtml(l.name)}</span>
+        <span class="ann-dd-date">${(l.date||'').substring(0,7)}</span>
+        ${sel ? '<span class="ann-dd-check">✓</span>' : ''}
+      </div>`;
+    }).join('');
+  }
+  dd.classList.add('open');
+}
+
+function selectAnnLesson(id, name) {
+  _annLinkedLesson = { id, name };
+  const inp = document.getElementById('ann-lesson-search');
+  if (inp) inp.value = name;
+  const dd = document.getElementById('ann-lesson-dropdown');
+  if (dd) dd.classList.remove('open');
+  const clearBtn = document.getElementById('ann-lesson-clear');
+  if (clearBtn) clearBtn.style.display = 'block';
+  renderAnnLessonSelectedInfo();
+}
+
+function clearAnnLesson() {
+  _annLinkedLesson = null;
+  const inp = document.getElementById('ann-lesson-search');
+  if (inp) inp.value = '';
+  const clearBtn = document.getElementById('ann-lesson-clear');
+  if (clearBtn) clearBtn.style.display = 'none';
+  renderAnnLessonSelectedInfo();
+}
+
+function renderAnnLessonSelectedInfo() {
+  const el = document.getElementById('ann-lesson-selected-info');
+  if (!el) return;
+  el.innerHTML = _annLinkedLesson
+    ? `<span class="ann-lesson-selected-badge">📋 <span class="ann-lesson-badge-name">${escHtml(_annLinkedLesson.name)}</span></span>`
+    : '';
+}
+
+// ドロップダウン外クリックで閉じる
+document.addEventListener('click', e => {
+  const wrap = document.querySelector('.ann-lesson-search-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    const dd = document.getElementById('ann-lesson-dropdown');
+    if (dd) dd.classList.remove('open');
+  }
+});
 
 const ANN_VIS_LABELS = {
   public:  { label: '🌐 無料公開',   cls: 'badge-green',   btnCls: 'selected-green' },
@@ -6733,6 +6881,12 @@ function resetAnnForm() {
   document.getElementById('ann-url').value     = '';
   document.getElementById('ann-desc').value    = '';
   _annSelectedVis = '';
+  _annLinkedLesson = null;
+  const inp = document.getElementById('ann-lesson-search');
+  if (inp) inp.value = '';
+  const clearBtn = document.getElementById('ann-lesson-clear');
+  if (clearBtn) clearBtn.style.display = 'none';
+  renderAnnLessonSelectedInfo();
   document.querySelectorAll('#ann-vis-grid .ann-vis-btn').forEach(btn => btn.className = 'ann-vis-btn');
   const hintEl = document.getElementById('ann-vis-hint');
   if (hintEl) hintEl.textContent = 'ステータスを選んでください';
@@ -6750,6 +6904,17 @@ function editAnnouncementForm(id) {
   document.getElementById('ann-title').value   = ann.title || '';
   document.getElementById('ann-url').value     = ann.url   || '';
   document.getElementById('ann-desc').value    = ann.description || '';
+  // レッスン復元
+  if (ann.lesson_id && ann.lesson_name) {
+    _annLinkedLesson = { id: ann.lesson_id, name: ann.lesson_name };
+    const inp = document.getElementById('ann-lesson-search');
+    if (inp) inp.value = ann.lesson_name;
+    const clearBtn = document.getElementById('ann-lesson-clear');
+    if (clearBtn) clearBtn.style.display = 'block';
+    renderAnnLessonSelectedInfo();
+  } else {
+    clearAnnLesson();
+  }
   selectAnnVis(ann.visibility || 'private');
   const card = document.getElementById('ann-form-card');
   if (card) card.classList.add('editing');
@@ -6773,7 +6938,12 @@ async function saveAnnouncement() {
     ? ((loadDB().announcements || []).find(a => a.id === editId)?.created_at || nowStr())
     : nowStr();
 
-  const entry = { id, title, url, description: desc, visibility: vis, created_at };
+  const entry = {
+    id, title, url, description: desc, visibility: vis,
+    lesson_id:   _annLinkedLesson?.id   || null,
+    lesson_name: _annLinkedLesson?.name || null,
+    created_at
+  };
 
   // ローカル保存
   const db = loadDB();
@@ -6788,6 +6958,7 @@ async function saveAnnouncement() {
     await sbUpsert('announcements', {
       id: entry.id, title: entry.title, url: entry.url,
       description: entry.description, visibility: entry.visibility,
+      lesson_id: entry.lesson_id, lesson_name: entry.lesson_name,
       created_at: entry.created_at
     });
     toast(editId ? '更新しました ✓' : 'アナウンスを保存しました ✓');
@@ -6857,6 +7028,7 @@ async function renderAnnouncementList(doSync) {
       </div>
       ${ann.url ? `<a class="ann-item-url" href="${escHtml(ann.url)}" target="_blank" rel="noopener">🔗 ${escHtml(ann.url)}</a>` : ''}
       ${ann.description ? `<div class="ann-item-desc">${escHtml(ann.description)}</div>` : ''}
+      ${ann.lesson_id ? `<div style="margin-bottom:10px"><span class="ann-linked-lesson">📋 ${escHtml(ann.lesson_name || ann.lesson_id)}</span></div>` : ''}
       <div class="ann-item-actions">
         <button class="btn-small accent" onclick="editAnnouncementForm('${ann.id}')">編集</button>
         ${ann.url ? `<button class="btn-small" onclick="window.open('${escHtml(ann.url)}','_blank')">URLを開く</button>` : ''}
